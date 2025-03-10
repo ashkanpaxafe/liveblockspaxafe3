@@ -1,0 +1,39 @@
+{
+  "name": "@liveblocks/monorepo",
+  "private": true,
+  "packageManager": "npm@10.8.1+sha256.b8807aebb9656758e2872fa6e7c564b506aa2faa9297439a478d471d2fe32483",
+  "workspaces": [
+    "shared/*",
+    "packages/*",
+    "tools/*",
+    "schema-lang/*",
+    "e2e/next-sandbox"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:types": "turbo run test:types",
+    "test:deps": "turbo run test:deps",
+    "lint": "turbo run lint",
+    "lint:package": "turbo run lint:package",
+    "format": "turbo run format"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.3",
+    "@types/node": "^18.19.70",
+    "dependency-cruiser": "^16.9.0",
+    "prettier": "^3.4.2",
+    "publint": "^0.3.6",
+    "ts-morph": "^22.0.0",
+    "tsd": "^0.31.1",
+    "tsup": "^8.3.5",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=22.x"
+  },
+  "overrides": {
+    "@types/node": "$@types/node"
+  }
+}

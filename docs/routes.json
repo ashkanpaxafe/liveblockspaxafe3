@@ -1,0 +1,670 @@
+[
+  {
+    "title": false,
+    "routes": [
+      {
+        "title": "Overview",
+        "path": "/",
+        "file": "/index.mdx"
+      },
+      {
+        "title": "Get started",
+        "href": "/get-started",
+        "routes": [
+          {
+            "title": "Next.js",
+            "path": "/get-started/nextjs",
+            "hidden": true
+          },
+          {
+            "title": "React",
+            "path": "/get-started/react",
+            "hidden": true
+          },
+          {
+            "title": "Comments",
+            "path": "/get-started/react-comments",
+            "hidden": true
+          },
+          {
+            "title": "Comments",
+            "path": "/get-started/nextjs-comments",
+            "hidden": true
+          },
+          {
+            "title": "Notifications",
+            "path": "/get-started/react-notifications",
+            "hidden": true
+          },
+          {
+            "title": "Notifications",
+            "path": "/get-started/nextjs-notifications",
+            "hidden": true
+          },
+          {
+            "title": "Tiptap",
+            "path": "/get-started/react-tiptap",
+            "hidden": true
+          },
+          {
+            "title": "Tiptap",
+            "path": "/get-started/nextjs-tiptap",
+            "hidden": true
+          },
+          {
+            "title": "Lexical",
+            "path": "/get-started/react-lexical",
+            "hidden": true
+          },
+          {
+            "title": "Lexical",
+            "path": "/get-started/nextjs-lexical",
+            "hidden": true
+          },
+          {
+            "title": "Redux",
+            "path": "/get-started/redux",
+            "hidden": true
+          },
+          {
+            "title": "Zustand",
+            "path": "/get-started/zustand",
+            "hidden": true
+          },
+          {
+            "title": "Svelte",
+            "path": "/get-started/svelte",
+            "hidden": true
+          },
+          {
+            "title": "Vue.js",
+            "path": "/get-started/vuejs",
+            "hidden": true
+          },
+          {
+            "title": "SolidJS",
+            "path": "/get-started/solidjs",
+            "hidden": true
+          },
+          {
+            "title": "JavaScript",
+            "path": "/get-started/javascript",
+            "hidden": true
+          },
+          {
+            "title": "Yjs CodeMirror React",
+            "path": "/get-started/yjs-codemirror-react",
+            "hidden": true
+          },
+          {
+            "title": "Yjs CodeMirror Svelte",
+            "path": "/get-started/yjs-codemirror-svelte",
+            "hidden": true
+          },
+          {
+            "title": "Yjs CodeMirror Vue.js",
+            "path": "/get-started/yjs-codemirror-vuejs",
+            "hidden": true
+          },
+          {
+            "title": "Yjs CodeMirror JavaScript",
+            "path": "/get-started/yjs-codemirror-javascript",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Monaco React",
+            "path": "/get-started/yjs-monaco-react",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Monaco Svelte",
+            "path": "/get-started/yjs-monaco-svelte",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Monaco Vue.js",
+            "path": "/get-started/yjs-monaco-vuejs",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Monaco JavaScript",
+            "path": "/get-started/yjs-monaco-javascript",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Quill React",
+            "path": "/get-started/yjs-quill-react",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Quill Svelte",
+            "path": "/get-started/yjs-quill-svelte",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Quill Vue.js",
+            "path": "/get-started/yjs-quill-vuejs",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Quill JavaScript",
+            "path": "/get-started/yjs-quill-javascript",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Slate React",
+            "path": "/get-started/yjs-slate-react",
+            "hidden": true
+          },
+          {
+            "title": "Yjs BlockNote React",
+            "path": "/get-started/yjs-blocknote-react",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Tiptap Svelte",
+            "path": "/get-started/yjs-tiptap-svelte",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Tiptap Vue.js",
+            "path": "/get-started/yjs-tiptap-vuejs",
+            "hidden": true
+          },
+          {
+            "title": "Yjs Tiptap JavaScript",
+            "path": "/get-started/yjs-tiptap-javascript",
+            "hidden": true
+          },
+          {
+            "title": "Text editor",
+            "href": "/get-started/text-editor",
+            "hidden": true
+          },
+          {
+            "title": "Text editor / Lexical",
+            "href": "/get-started/text-editor/lexical",
+            "hidden": true
+          },
+          {
+            "title": "Text editor / Quill",
+            "href": "/get-started/text-editor/quill",
+            "hidden": true
+          },
+          {
+            "title": "Text editor / Slate",
+            "href": "/get-started/text-editor/slate",
+            "hidden": true
+          },
+          {
+            "title": "Text editor / Blocknote",
+            "href": "/get-started/text-editor/blocknote",
+            "hidden": true
+          },
+          {
+            "title": "Text editor / Tiptap",
+            "href": "/get-started/text-editor/tiptap",
+            "hidden": true
+          },
+          {
+            "title": "Text editor / Tiptap Custom",
+            "href": "/get-started/text-editor/tiptap-custom",
+            "hidden": true
+          },
+          {
+            "title": "Code editor",
+            "href": "/get-started/code-editor",
+            "hidden": true
+          },
+          {
+            "title": "Code editor / CodeMirror",
+            "href": "/get-started/code-editor/codemirror",
+            "hidden": true
+          },
+          {
+            "title": "Whiteboard",
+            "href": "/get-started/whiteboard",
+            "hidden": true
+          },
+          {
+            "title": "Form",
+            "href": "/get-started/form",
+            "hidden": true
+          },
+          {
+            "title": "Creative tool",
+            "href": "/get-started/creative-tool",
+            "hidden": true
+          },
+          {
+            "title": "Custom",
+            "href": "/get-started/custom",
+            "hidden": true
+          }
+        ]
+      },
+      {
+        "title": "Authentication",
+        "path": "/authentication",
+        "routes": [
+          {
+            "title": "Access token",
+            "path": "/authentication/access-token"
+          },
+          {
+            "title": "ID token",
+            "path": "/authentication/id-token"
+          },
+          {
+            "title": "Next.js",
+            "path": "/authentication/access-token/nextjs",
+            "hidden": true
+          },
+          {
+            "title": "Remix",
+            "path": "/authentication/access-token/remix",
+            "hidden": true
+          },
+          {
+            "title": "SvelteKit",
+            "path": "/authentication/access-token/sveltekit",
+            "hidden": true
+          },
+          {
+            "title": "Nuxt.js",
+            "path": "/authentication/access-token/nuxtjs",
+            "hidden": true
+          },
+          {
+            "title": "Firebase",
+            "path": "/authentication/access-token/firebase",
+            "hidden": true
+          },
+          {
+            "title": "Express",
+            "path": "/authentication/access-token/express",
+            "hidden": true
+          },
+          {
+            "title": "Next.js",
+            "path": "/authentication/id-token/nextjs",
+            "hidden": true
+          },
+          {
+            "title": "Remix",
+            "path": "/authentication/id-token/remix",
+            "hidden": true
+          },
+          {
+            "title": "SvelteKit",
+            "path": "/authentication/id-token/sveltekit",
+            "hidden": true
+          },
+          {
+            "title": "Nuxt.js",
+            "path": "/authentication/id-token/nuxtjs",
+            "hidden": true
+          },
+          {
+            "title": "Firebase",
+            "path": "/authentication/id-token/firebase",
+            "hidden": true
+          },
+          {
+            "title": "Express",
+            "path": "/authentication/id-token/express",
+            "hidden": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Concepts",
+    "routes": [
+      {
+        "title": "Why Liveblocks",
+        "path": "/concepts/why-liveblocks"
+      },
+      {
+        "title": "How Liveblocks works",
+        "path": "/concepts/how-liveblocks-works"
+      }
+    ]
+  },
+  {
+    "title": "Ready-made features",
+    "routes": [
+      {
+        "title": "Comments",
+        "path": "/ready-made-features/comments",
+        "routes": [
+          {
+            "title": "Concepts",
+            "path": "/ready-made-features/comments/concepts"
+          },
+          {
+            "title": "Users and mentions",
+            "path": "/ready-made-features/comments/users-and-mentions"
+          },
+          {
+            "title": "Default components",
+            "path": "/ready-made-features/comments/default-components"
+          },
+          {
+            "title": "Hooks",
+            "path": "/ready-made-features/comments/hooks"
+          },
+          {
+            "title": "Metadata",
+            "path": "/ready-made-features/comments/metadata"
+          },
+          {
+            "title": "Primitives",
+            "path": "/ready-made-features/comments/primitives"
+          },
+          {
+            "title": "Styling and customization",
+            "path": "/ready-made-features/comments/styling-and-customization"
+          },
+          {
+            "title": "Email notifications",
+            "path": "/ready-made-features/comments/email-notifications"
+          }
+        ]
+      },
+      {
+        "title": "Notifications",
+        "path": "/ready-made-features/notifications",
+        "routes": [
+          {
+            "title": "Concepts",
+            "path": "/ready-made-features/notifications/concepts"
+          },
+          {
+            "title": "Default components",
+            "path": "/ready-made-features/notifications/default-components"
+          },
+          {
+            "title": "Hooks",
+            "path": "/ready-made-features/notifications/hooks"
+          },
+          {
+            "title": "Styling and customization",
+            "path": "/ready-made-features/notifications/styling-and-customization"
+          },
+          {
+            "title": "Email notifications",
+            "path": "/ready-made-features/notifications/email-notifications"
+          }
+        ]
+      },
+      {
+        "title": "Text Editor",
+        "path": "/ready-made-features/text-editor",
+        "routes": [
+          {
+            "title": "Tiptap",
+            "path": "/ready-made-features/text-editor/tiptap"
+          },
+          {
+            "title": "Lexical",
+            "path": "/ready-made-features/text-editor/lexical"
+          }
+        ]
+      },
+      {
+        "title": "Presence",
+        "path": "/ready-made-features/presence"
+      },
+      {
+        "title": "AI Copilots",
+        "path": "/ready-made-features/ai-copilots"
+      }
+    ]
+  },
+  {
+    "title": "Rooms",
+    "routes": [
+      {
+        "title": "Metadata",
+        "path": "/rooms/metadata"
+      }
+    ]
+  },
+  {
+    "title": "Errors",
+    "hidden": true,
+    "routes": [
+      {
+        "title": "atob polyfill is missing",
+        "path": "/errors/liveblocks-client/atob-polyfill"
+      },
+      {
+        "title": "RoomProvider id property is required",
+        "path": "/errors/liveblocks-react/RoomProvider-id-property-is-required"
+      },
+      {
+        "title": "Cross-linked Liveblocks versions are found in your project",
+        "path": "/errors/cross-linked"
+      },
+      {
+        "title": "Multiple copies of Liveblocks are being loaded in your project",
+        "path": "/errors/dupes"
+      },
+      {
+        "title": "Access token doesn't grant enough permissions",
+        "path": "/errors/liveblocks-client/access-tokens-not-enough-permissions"
+      },
+      {
+        "title": "The type you provided for 'Presence' is not a valid JSON object",
+        "path": "/errors/Presence"
+      },
+      {
+        "title": "The type you provided for 'Storage' is not a valid LSON value",
+        "path": "/errors/Storage"
+      },
+      {
+        "title": "The type you provided for 'UserMeta' does not match its requirements",
+        "path": "/errors/UserMeta"
+      },
+      {
+        "title": "The type you provided for 'RoomEvent' is not a valid JSON value",
+        "path": "/errors/RoomEvent"
+      },
+      {
+        "title": "The type you provided for 'ThreadMetadata' does not match its requirements",
+        "path": "/errors/ThreadMetadata"
+      },
+      {
+        "title": "The type you provided for 'RoomInfo' does not match its requirements",
+        "path": "/errors/RoomInfo"
+      },
+      {
+        "title": "At least one of the custom notification kinds you provided for 'ActivitiesData' does not match its requirements",
+        "path": "/errors/ActivitiesData"
+      },
+      {
+        "title": "In order to use this channel, please set up your project first",
+        "path": "/errors/enable-a-notification-channel"
+      }
+    ]
+  },
+  {
+    "title": "Tools",
+    "routes": [
+      {
+        "title": "DevTools",
+        "path": "/tools/devtools"
+      },
+      {
+        "title": "Next.js Starter Kit",
+        "path": "/tools/nextjs-starter-kit"
+      }
+    ]
+  },
+  {
+    "title": "API Reference",
+    "routes": [
+      {
+        "title": "@liveblocks/client",
+        "path": "/api-reference/liveblocks-client"
+      },
+      {
+        "title": "@liveblocks/react",
+        "path": "/api-reference/liveblocks-react"
+      },
+      {
+        "title": "@liveblocks/react-ui",
+        "path": "/api-reference/liveblocks-react-ui"
+      },
+      {
+        "title": "@liveblocks/react-tiptap",
+        "path": "/api-reference/liveblocks-react-tiptap"
+      },
+      {
+        "title": "@liveblocks/node-prosemirror",
+        "path": "/api-reference/liveblocks-node-prosemirror"
+      },
+      {
+        "title": "@liveblocks/react-lexical",
+        "path": "/api-reference/liveblocks-react-lexical"
+      },
+      {
+        "title": "@liveblocks/node-lexical",
+        "path": "/api-reference/liveblocks-node-lexical"
+      },
+      {
+        "title": "@liveblocks/redux",
+        "path": "/api-reference/liveblocks-redux"
+      },
+      {
+        "title": "@liveblocks/zustand",
+        "path": "/api-reference/liveblocks-zustand"
+      },
+      {
+        "title": "@liveblocks/yjs",
+        "path": "/api-reference/liveblocks-yjs"
+      },
+      {
+        "title": "@liveblocks/node",
+        "path": "/api-reference/liveblocks-node"
+      },
+      {
+        "title": "@liveblocks/emails",
+        "path": "/api-reference/liveblocks-emails"
+      },
+      {
+        "title": "REST API",
+        "href": "/api-reference/rest-api-endpoints"
+      },
+      {
+        "title": "API v1 Endpoints",
+        "hidden": true,
+        "path": "/api-reference/rest-api-endpoints-v1"
+      }
+    ]
+  },
+  {
+    "title": "Platform",
+    "routes": [
+      {
+        "title": "Sync datastore",
+        "path": "/platform/sync-datastore",
+        "routes": [
+          {
+            "title": "Liveblocks Yjs",
+            "path": "/platform/sync-datastore/liveblocks-yjs"
+          },
+          {
+            "title": "Liveblocks Storage",
+            "path": "/platform/sync-datastore/liveblocks-storage"
+          }
+        ]
+      },
+      {
+        "title": "WebSocket infrastructure",
+        "path": "/platform/websocket-infrastructure"
+      },
+      {
+        "title": "Projects",
+        "path": "/platform/projects"
+      },
+      {
+        "title": "Analytics",
+        "path": "/platform/analytics"
+      },
+      {
+        "title": "Webhooks",
+        "path": "/platform/webhooks"
+      },
+      {
+        "title": "REST API",
+        "path": "/platform/rest-api"
+      },
+      {
+        "title": "Schema validation",
+        "path": "/platform/schema-validation",
+        "routes": [
+          {
+            "title": "Syntax",
+            "path": "/platform/schema-validation/syntax"
+          }
+        ]
+      },
+      {
+        "title": "Account management",
+        "path": "/platform/account-management",
+        "routes": [
+          {
+            "title": "Create an account",
+            "path": "/platform/account-management/create-an-account"
+          },
+          {
+            "title": "Manage team members",
+            "path": "/platform/account-management/manage-team-members"
+          }
+        ]
+      },
+      {
+        "title": "Plans",
+        "path": "/platform/plans"
+      },
+      {
+        "title": "Limits",
+        "path": "/platform/limits",
+        "routes": [
+          {
+            "title": "Fair Use Policy",
+            "path": "/platform/limits/fair-use-policy"
+          }
+        ]
+      },
+      {
+        "title": "Upgrading",
+        "path": "/platform/upgrading",
+        "sort": "descending",
+        "routes": [
+          { "title": "Upgrading to 0.17", "path": "/platform/upgrading/0.17" },
+          { "title": "Upgrading to 0.18", "path": "/platform/upgrading/0.18" },
+          { "title": "Upgrading to 0.19", "path": "/platform/upgrading/0.19" },
+          { "title": "Upgrading to 1.0", "path": "/platform/upgrading/1.0" },
+          { "title": "Upgrading to 1.2", "path": "/platform/upgrading/1.2" },
+          { "title": "Upgrading to 1.5", "path": "/platform/upgrading/1.5" },
+          { "title": "Upgrading to 1.9", "path": "/platform/upgrading/1.9" },
+          { "title": "Upgrading to 1.10", "path": "/platform/upgrading/1.10" },
+          { "title": "Upgrading to 2.0", "path": "/platform/upgrading/2.0" },
+          { "title": "Upgrading to 2.2", "path": "/platform/upgrading/2.2" },
+          { "title": "Upgrading to 2.8", "path": "/platform/upgrading/2.8" },
+          { "title": "Upgrading to 2.9", "path": "/platform/upgrading/2.9" },
+          { "title": "Upgrading to 2.15", "path": "/platform/upgrading/2.15" },
+          { "title": "Upgrading to 2.16", "path": "/platform/upgrading/2.16" }
+        ]
+      },
+      {
+        "title": "Troubleshooting",
+        "path": "/platform/troubleshooting"
+      }
+    ]
+  }
+]

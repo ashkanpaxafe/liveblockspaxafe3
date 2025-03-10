@@ -1,0 +1,106 @@
+---
+meta:
+  title: "Limits"
+  parentTitle: "Platform"
+  description:
+    "A list of all the limits and limitations that apply on Liveblocks."
+---
+
+## General limits
+
+To prevent abuse of our platform, we apply the following limits to all accounts.
+
+|                                      | Starter                                          | Pro                                          | Enterprise |
+| ------------------------------------ | ------------------------------------------------ | -------------------------------------------- | ---------- |
+| Monthly active users                 | <Limits.StarterMauIncluded />                    | <Limits.ProMauIncluded />                    | Custom     |
+| Projects                             | <Limits.StarterMaxProjects />                    | <Limits.ProMaxProjects />                    | Unlimited  |
+| Average connections per MAU          | Up to <Limits.StarterAvgConnectionsPerMau />     | Up to <Limits.ProAvgConnectionsPerMau />     | Custom     |
+| Maximum data stored size per room    | Up to <Limits.StarterMaxStorageSizePerRoom />    | Up to <Limits.ProMaxStorageSizePerRoom />    | Custom     |
+| Simultaneous connections per room    | Up to <Limits.StarterMaxConnectionsPerRoom />    | Up to <Limits.ProMaxConnectionsPerRoom />    | Custom     |
+| Simultaneous connections per project | Up to <Limits.StarterMaxConnectionsPerProject /> | Up to <Limits.ProMaxConnectionsPerProject /> | Custom     |
+| Team members per account             | <Limits.StarterTeamMembersPerAccount />          | <Limits.ProTeamMembersPerAccount />          | Custom     |
+| Monthly public key connections       | <Limits.StarterMaxAnonymousConnections />        | <Limits.ProMaxAnonymousConnections />        | Custom     |
+
+#### Comments
+
+{/* prettier-ignore */}
+Comments is free up to <Limits.StarterMauMax /> monthly active users and <Limits.StarterMaxComments /> comments per month. You can get higher limits for an additional <Limits.ProStartingPriceComments />.
+
+| Comments             | Included                      | Paid add-on               |
+| -------------------- | ----------------------------- | ------------------------- |
+| Monthly active users | <Limits.StarterMauMax />      | <Limits.ProMauIncluded /> |
+| Monthly comments     | <Limits.StarterMaxComments /> | <Limits.ProMaxComments /> |
+
+#### Notifications
+
+{/* prettier-ignore */}
+Notifications is free up to <Limits.StarterMauMax /> monthly active users and <Limits.StarterMaxNotifications /> notifications per month. You can get higher limits for an additional <Limits.ProStartingPriceNotifications />.
+
+| Notifications         | Included                           | Paid add-on                    |
+| --------------------- | ---------------------------------- | ------------------------------ |
+| Monthly active users  | <Limits.StarterMauMax />           | <Limits.ProMauIncluded />      |
+| Monthly notifications | <Limits.StarterMaxNotifications /> | <Limits.ProMaxNotifications /> |
+
+#### Text editor
+
+{/* prettier-ignore */}
+Text editor is free up to <Limits.StarterMauMax /> monthly active users and <Limits.StarterTotalTextEditorStored /> data stored. You can get higher limits for an additional <Limits.ProStartingPriceTextEditor />.
+
+| Text editor          | Included                                | Paid add-on                         |
+| -------------------- | --------------------------------------- | ----------------------------------- |
+| Monthly active users | <Limits.StarterMauMax />                | <Limits.ProMauIncluded />           |
+| Total GB stored      | <Limits.StarterTotalTextEditorStored /> | <Limits.ProTotalTextEditorStored /> |
+
+#### Sync Datastore
+
+{/* prettier-ignore */}
+Sync Datastore is free up to <Limits.StarterMauMax /> monthly active users and <Limits.StarterTotalCustomAppStored /> data stored. You can get higher limits for an additional <Limits.ProStartingPriceCustomApp />.
+
+| Sync Datastore       | Included                               | Paid add-on                        |
+| -------------------- | -------------------------------------- | ---------------------------------- |
+| Monthly active users | <Limits.StarterMauMax />               | <Limits.ProMauIncluded />          |
+| Total GB stored      | <Limits.StarterTotalCustomAppStored /> | <Limits.ProTotalCustomAppStored /> |
+
+### Monthly active users
+
+Learn more about how monthly active users are calculated for each plan on our
+[plans page](/docs/platform/plans).
+
+### Simultaneous connections per room
+
+Learn more about handling simultaneous room connection limits in our guide about
+[joining rooms at maximum capacity](/docs/guides/what-happens-when-a-user-joins-a-room-at-maximum-capacity).
+
+## Other limits
+
+### `roomId` limit
+
+A `roomId` cannot exceed 128 characters.
+
+### `userId` limit
+
+A `userId` cannot exceed 128 characters.
+
+### `userInfo` limit
+
+`userInfo` sent from the authentication endpoint cannot exceed 1024 characters
+once serialized to JSON.
+
+### Broadcast event limit
+
+Broadcast event messages have a limit of 1 MB.
+
+### Liveblocks Storage limits
+
+- A `LiveObject` cannot exceed 128 kB when totalling the size of the keys and
+  values.
+- A `LiveMap` can be any size, so long as each individual value does not exceed
+  128kB.
+- A `LiveList` can be any size, so long as each individual value does not exceed
+  128kB.
+
+Note that when one realtime data structure is nested inside another, it does not
+count towards the limit. Only the JSON leaves of your data structure count
+towards the limit. For example, if a `LiveList` is nested inside a `LiveObject`,
+the `LiveList` and its contents do not count towards the `LiveObject`’s data
+limit.

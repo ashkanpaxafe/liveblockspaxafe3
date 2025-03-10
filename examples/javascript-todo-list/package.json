@@ -1,0 +1,17 @@
+{
+  "name": "@liveblocks-examples/javascript-todo-list",
+  "description": "This example shows how to build a collaborative to-do list with Liveblocks and esbuild.",
+  "license": "Apache-2.0",
+  "private": true,
+  "main": "app.js",
+  "scripts": {
+    "build": "esbuild app.ts --bundle --outfile=static/app.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.17.5",
+    "prettier": "^3.3.2"
+  },
+  "dependencies": {
+    "@liveblocks/client": "^2.20.0"
+  }
+}

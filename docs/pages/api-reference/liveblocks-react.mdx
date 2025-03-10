@@ -1,0 +1,3724 @@
+---
+meta:
+  title: "@liveblocks/react"
+  parentTitle: "API Reference"
+  description: "API Reference for the @liveblocks/react package"
+alwaysShowAllNavigationLevels: false
+---
+
+`@liveblocks/react` provides you with [React](https://react.dev/) bindings for
+our realtime collaboration APIs, built on top of WebSockets. Read our
+[getting started](/docs/get-started) guides to learn more.
+
+## Suspense
+
+All Liveblocks React components and hooks can be exported from two different
+locations, `@liveblocks/react/suspense` and `@liveblocks/react`. This is because
+Liveblocks provides two types of hooks; those that support
+[React Suspense](https://react.dev/reference/react/Suspense), and those that
+don’t.
+
+```tsx
+// Import the Suspense hook
+import { useThreads } from "@/liveblocks/react/suspense";
+
+// Import the regular hook
+import { useThreads } from "@/liveblocks/react";
+```
+
+We recommend importing from `@liveblocks/react/suspense` and using Suspense by
+default, as it often makes it easier to build your collaborative application.
+
+<Banner title="Enable Suspense with createRoomContext">
+
+If you’re using the non-standard [`createRoomContext`](#createRoomContext)
+function to build your hooks, you must
+[enable suspense differently](#createRoomContext-Suspense).
+
+</Banner>
+
+### Suspense hooks
+
+Suspense hooks can be wrapped in [`ClientSideSuspense`][], which acts as a
+loading spinner for any components below it. When using this, all components
+below will only render once their hook contents have been loaded.
+
+```tsx
+import { ClientSideSuspense, useStorage } from "@liveblocks/react/suspense";
+
+function App() {
+  <ClientSideSuspense fallback={<div>Loading…</div>}>
+    <Component />
+  </ClientSideSuspense>;
+}
+
+function Component() {
+  // `animals` is always defined
+  const animals = useStorage((root) => root.animals);
+
+  // ...
+}
+```
+
+Advanced hooks using the `{ ..., error, isLoading }` syntax, such as
+[`useThreads`][], can also use
+[`ErrorBoundary`](https://github.com/bvaughn/react-error-boundary) to render an
+error if the hook runs into a problem.
+
+```tsx
+import { ClientSideSuspense, useThreads } from "@liveblocks/react/suspense";
+import { ErrorBoundary } from "react-error-boundary";
+
+function App() {
+  return (
+    <ErrorBoundary fallback={<div>Error</div>}>
+      <ClientSideSuspense fallback={<div>Loading…</div>}>
+        <Component />
+      </ClientSideSuspense>
+    </ErrorBoundary>
+  );
+}
+
+function Component() {
+  // `threads` is always defined
+  const { threads } = useThreads();
+
+  // ...
+}
+```
+
+An advantage of Suspense hooks is that you can have multiple different hooks in
+your tree, and you only need a single `ClientSideSuspense` component to render a
+loading spinner for all of them.
+
+### Regular hooks
+
+Regular hooks often return `null` whilst a component is loading, and you must
+check for this to render a loading spinner.
+
+```tsx
+import { useStorage } from "@liveblocks/react";
+
+function Component() {
+  // `animals` is `null` when loading
+  const animals = useStorage((root) => root.animals);
+
+  if (!animals) {
+    return <div>Loading…</div>;
+  }
+
+  // ...
+}
+```
+
+Advanced hooks using the `{ ..., error, isLoading }` syntax, such as
+[`useThreads`][], require you to make sure there isn’t a problem before using
+the data.
+
+```tsx
+import { useThreads } from "@liveblocks/react";
+
+function Component() {
+  // Check for `error` and `isLoading` before `threads` is defined
+  const { threads, error, isLoading } = useThreads();
+
+  if (error) {
+    return <div>Error</div>;
+  }
+
+  if (isLoading) {
+    return <div>Loading…</div>;
+  }
+
+  // ...
+}
+```
+
+### ClientSideSuspense
+
+Liveblocks provides a component named `ClientSideSuspense` which works as a
+replacement for `Suspense`. This is helpful as our Suspense hooks will throw an
+error when they’re run on the server, and this component avoids this issue by
+always rendering the `fallback` on the server.
+
+```tsx
+import { ClientSideSuspense } from "@liveblocks/react/suspense";
+
+function Page() {
+  return (
+    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+      <RoomProvider id="my-room-id">
+        +++
+        <ClientSideSuspense fallback={<div>Loading…</div>}>
+          <App />
+        </ClientSideSuspense>
+        +++
+      </RoomProvider>
+    </LiveblocksProvider>
+  );
+}
+```
+
+#### Loading spinners
+
+Instead of wrapping your entire Liveblocks application inside a single
+`ClientSideSuspense` component, you can use multiple of these components in
+different parts of your application, and each will work as a loading fallback
+for any components further down your tree.
+
+```tsx
+import { ClientSideSuspense } from "@liveblocks/react/suspense";
+
+function Page() {
+  return (
+    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+      <RoomProvider id="my-room-id">
+        <header>My title</header>
+
+        <main>
+          +++
+          <ClientSideSuspense fallback={<div>Loading…</div>}>
+            <Canvas />
+          </ClientSideSuspense>
+          +++
+        </main>
+
+        <aside>
+          +++
+          <ClientSideSuspense fallback={<div>Loading…</div>}>
+            <LiveAvatars />
+          </ClientSideSuspense>
+          +++
+        </aside>
+      </RoomProvider>
+    </LiveblocksProvider>
+  );
+}
+```
+
+This is a great way to build a static skeleton around your dynamic collaborative
+application.
+
+## Liveblocks
+
+### LiveblocksProvider
+
+Sets up a client for connecting to Liveblocks, and is the recommended way to do
+this for React apps. You must define either `authEndpoint` or `publicApiKey`.
+Resolver functions should be placed inside here, and a number of other options
+are available, which correspond with those passed to [`createClient`][]. Unlike
+[`RoomProvider`][], `LiveblocksProvider` doesn’t call Liveblocks servers when
+mounted, and it should be placed higher in your app’s component tree.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+    // publicApiKey=""
+    // authEndpoint="/api/liveblocks-auth"
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+```tsx title="All LiveblocksProvider props" isCollapsable isCollapsed
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      // Connect with authEndpoint
+      authEndpoint="/api/liveblocks-auth"
+      // ---
+      // Alternatively, use an authEndpoint callback
+      // authEndpoint={async (room) => {
+      //   const response = await fetch("/api/liveblocks-auth", {
+      //     method: "POST",
+      //     headers: {
+      //       Authentication: "<your own headers here>",
+      //       "Content-Type": "application/json",
+      //     },
+      //     body: JSON.stringify({ room }),
+      //   });
+      //   return await response.json();
+      // }}
+      //
+      // Alternatively, use a public key
+      // publicApiKey="pk_..."
+      //
+      // Throttle time (ms) between WebSocket updates
+      throttle={100}
+      // ---
+      // Prevent browser tab from closing while local changes aren’t synchronized yet
+      preventUnsavedChanges={false}
+      // ---
+      // Throw lost-connection event after 5 seconds offline
+      lostConnectionTimeout={5000}
+      // ---
+      // Disconnect users after X (ms) of inactivity, disabled by default
+      backgroundKeepAliveTimeout={undefined}
+      // ---
+      // Resolve user info for Comments and Notifications
+      resolveUsers={async ({ userIds }) => {
+        const usersData = await __getUsersFromDB__(userIds);
+
+        return usersData.map((userData) => ({
+          name: userData.name,
+          avatar: userData.avatar.src,
+        }));
+      }}
+      // ---
+      // Resolve room info for Notifications
+      resolveRoomsInfo={async ({ roomIds }) => {
+        const documentsData = await __getDocumentsFromDB__(roomIds);
+
+        return documentsData.map((documentData) => ({
+          name: documentData.name,
+          // url: documentData.url,
+        }));
+      }}
+      // ---
+      // Resolve mention suggestions for Comments
+      resolveMentionSuggestions={async ({ text, roomId }) => {
+        const workspaceUsers = await __getWorkspaceUsersFromDB__(roomId);
+
+        if (!text) {
+          // Show all workspace users by default
+          return __getUserIds__(workspaceUsers);
+        } else {
+          const matchingUsers = __findUsers__(workspaceUsers, text);
+          return __getUserIds__(matchingUsers);
+        }
+      }}
+      // ---
+      // Polyfill options for non-browser environments
+      polyfills={
+        {
+          // atob,
+          // fetch,
+          // WebSocket,
+        }
+      }
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+<PropertiesList title="Props">
+  <PropertiesListItem
+    name="authEndpoint"
+    detailedType="string | async ((room?: string) => CustomAuthenticationResult)"
+  >
+    The URL of your back end’s [authentication endpoint](/docs/authentication)
+    as a string, or an async callback function that returns a Liveblocks token
+    result. Either `authEndpoint` or `publicApikey` are required. Learn more
+    about [using a URL string](#LiveblocksProviderAuthEndpoint) and [using a
+    callback](#LiveblocksProviderCallback).
+  </PropertiesListItem>
+  <PropertiesListItem name="publicApiKey" type="string">
+    The public API key taken from your project’s
+    [dashboard](/dashboard/apikeys). Generally not recommended for production
+    use. Either `authEndpoint` or `publicApikey` are required. [Learn
+    more](#LiveblocksProviderPublicKey).
+  </PropertiesListItem>
+  <PropertiesListItem name="throttle" type="number" defaultValue="100">
+    The throttle time between WebSocket messages in milliseconds, a number
+    between `16` and `1000` is allowed. Using `16` means your app will update 60
+    times per second. [Learn more](#LiveblocksProviderThrottle).
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="preventUnsavedChanges"
+    type="boolean"
+    defaultValue="false"
+  >
+    When set, navigating away from the current page is prevented while
+    Liveblocks is still synchronizing local changes. [Learn
+    more](#prevent-users-losing-unsaved-changes).
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="lostConnectionTimeout"
+    type="number"
+    defaultValue="5000"
+  >
+    After a user disconnects, the time in milliseconds before a
+    [`"lost-connection"`](/docs/api-reference/liveblocks-client#Room.subscribe.lost-connection)
+    event is fired. [Learn more](#LiveblocksProviderLostConnectionTimeout).
+  </PropertiesListItem>
+  <PropertiesListItem name="backgroundKeepAliveTimeout" type="number">
+    The time before an inactive WebSocket connection is disconnected. This is
+    disabled by default, but setting a number will activate it. [Learn
+    more](#LiveblocksProviderBackgroundKeepAliveTimeout).
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="resolveUsers"
+    detailedType='async? (args: ResolveUsersArgs) => (UserMeta["info"] | undefined)[] | undefined'
+  >
+    A function that resolves user information in
+    [Comments](/docs/ready-made-features/comments). Return an array of
+    `UserMeta["info"]` objects in the same order they arrived. [Learn
+    more](#LiveblocksProviderResolveUsers).
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="resolveRoomsInfo"
+    detailedType="async? (args: ResolveRoomsInfoArgs) => (RoomInfo | undefined)[] | undefined"
+  >
+    A function that resolves room information in
+    [Comments](/docs/ready-made-features/comments). Return an array of
+    `RoomInfo` objects in the same order they arrived. [Learn
+    more](#LiveblocksProviderResolveRoomsInfo).
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="resolveMentionSuggestions"
+    detailedType="async? (args: ResolveMentionSuggestionsArgs) => string[]"
+  >
+    A function that resolves mention suggestions in
+    [Comments](/docs/ready-made-features/comments). Return an array of user IDs.
+    [Learn more](#LiveblocksProviderResolveMentionSuggestions).
+  </PropertiesListItem>
+  <PropertiesListItem name="polyfills">
+    Place polyfills for `atob`, `fetch`, and `WebSocket` inside here. Useful
+    when using a non-browser environment, such as
+    [Node.js](#LiveblocksProviderNode) or [React
+    Native](#LiveblocksProviderReactNative).
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="largeMessageStrategy"
+    detailedType='"default" | "split" | "experimental-fallback-to-http"'
+    defaultValue={`"default"`}
+  >
+    <div className="-mb-3">
+      How to handle WebSocket messages that are larger than the maximum message size. Can be set to one of these values:
+    </div>
+
+    - `"default"` Don’t send anything, but log the error to the console.
+    - `"split"` Break the message up into chunks each of which is smaller than the maximum message size.
+      Beware that using `"split"` will sacrifice atomicity of changes! Depending on your use case, this may or may not be problematic.
+    - `"experimental-fallback-to-http"` Try sending the update over HTTP instead of WebSockets (experimental).
+
+  </PropertiesListItem>
+  <PropertiesListItem
+    name="unstable_streamData"
+    type="boolean"
+    defaultValue="false"
+  >
+    Experimental. Stream the initial Storage content over HTTP, instead of
+    waiting for a large initial WebSocket message to be sent from the server.
+  </PropertiesListItem>
+</PropertiesList>
+
+#### LiveblocksProvider with public key [#LiveblocksProviderPublicKey]
+
+When creating a client with a public key, you don’t need to set up an
+authorization endpoint. We only recommend using a public key when prototyping,
+or on public landing pages, as it makes it possible for end users to access any
+room’s data. You should instead use an
+[auth endpoint](#LiveblocksProviderAuthEndpoint).
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider publicApiKey={"{{PUBLIC_KEY}}"}>
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+#### LiveblocksProvider with auth endpoint [#LiveblocksProviderAuthEndpoint]
+
+If you are not using a public key, you need to set up your own `authEndpoint`.
+Please refer to our [Authentication guide](/docs/authentication).
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider authEndpoint="/api/liveblocks-auth">
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+#### LiveblocksProvider with auth endpoint callback [#LiveblocksProviderCallback]
+
+If you need to add additional headers or use your own function to call your
+endpoint, `authEndpoint` can be provided as a custom callback. You should return
+the token created with
+[`Liveblocks.prepareSession`](/docs/api-reference/liveblocks-node#access-tokens)
+or [`liveblocks.identifyUser`](/docs/api-reference/liveblocks-node#id-tokens),
+learn more in [authentication guide](/docs/rooms/authentication).
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      authEndpoint={async (room) => {
+        // Fetch your authentication endpoint and retrieve your access or ID token
+        // ...
+
+        return { token: "..." };
+      }}
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+`room` is the room ID that the user is connecting to. When using
+[Notifications](/docs/ready-made-features/comments/email-notifications), `room`
+can be `undefined`, as the client is requesting a token that grants access to
+multiple rooms, rather than a specific room.
+
+##### Fetch your endpoint
+
+Here’s an example of fetching your API endpoint at `/api/liveblocks-auth` within
+the callback.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      authEndpoint={async (room) => {
+        const response = await fetch("/api/liveblocks-auth", {
+          method: "POST",
+          headers: {
+            Authentication: "<your own headers here>",
+            "Content-Type": "application/json",
+          },
+          // Don't forget to pass `room` down. Note that it
+          // can be undefined when using Notifications.
+          body: JSON.stringify({ room }),
+        });
+        return await response.json();
+      }}
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+##### Token details
+
+You should return the token created with
+[`Liveblocks.prepareSession`](/docs/api-reference/liveblocks-node#access-tokens)
+or [`liveblocks.identifyUser`](/docs/api-reference/liveblocks-node#id-tokens).
+These are the values the functions can return.
+
+1. A valid token, it returns a `{ "token": "..." }` shaped response.
+1. A token that explicitly forbids access, it returns an
+   `{ "error": "forbidden", "reason": "..." }` shaped response. If this is
+   returned, the client will disconnect and won't keep trying to authorize.
+
+Any other error will be treated as an unexpected error, after which the client
+will retry the request until it receives either 1. or 2.
+
+#### WebSocket throttle [#LiveblocksProviderThrottle]
+
+By default, the client throttles the WebSocket messages sent to one every 100
+milliseconds, which translates to 10 updates per second. It’s possible to
+override that configuration with the `throttle` option with a value between `16`
+and `1000` milliseconds.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      throttle={16}
+
+      // Other options
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+This option is helpful for smoothing out realtime animations in your
+application, as you can effectively increase the framerate without using any
+interpolation. Here are some examples with their approximate frames per second
+(FPS) values.
+
+```ts
+throttle:  16, // 60 FPS
+throttle:  32, // 30 FPS
+throttle: 200, //  5 FPS
+```
+
+#### Prevent users losing unsaved changes [#prevent-users-losing-unsaved-changes]
+
+Liveblocks usually synchronizes milliseconds after a local change, but if a user
+immediately closes their tab, or if they have a slow connection, it may take
+longer for changes to synchronize. Enabling `preventUnsavedChanges` will stop
+tabs with unsaved changes closing, by opening a dialog that warns users. In
+usual circumstances, it will very rarely trigger.
+
+```tsx
+function Page() {
+  return (
+    <LiveblocksProvider
+      // highlight-next-line
+      preventUnsavedChanges
+
+      // Other options
+      // ...
+    >
+      ...
+    </LiveblocksProvider>
+  );
+}
+```
+
+More specifically, this option triggers when:
+
+- There are unsaved changes after calling any hooks or methods, in all of our
+  products.
+- There are unsaved changes in a
+  [Text Editor](/docs/ready-made-features/text-editor).
+- There’s an unsubmitted comment in the
+  [Composer](/docs/api-reference/liveblocks-react-ui#Composer).
+- The user has made changes and is currently offline.
+
+Internally, this option uses the
+[beforeunload event](https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event).
+
+#### Lost connection timeout [#LiveblocksProviderLostConnectionTimeout]
+
+If you’re connected to a room and briefly lose connection, Liveblocks will
+reconnect automatically and quickly. However, if reconnecting takes longer than
+usual, for example if your network is offline, then the room will emit an event
+informing you about this.
+
+How quickly this event is triggered can be configured with the
+`lostConnectionTimeout` setting, and it takes a number in milliseconds.
+`lostConnectionTimeout` can be set between `1000` and `30000` milliseconds. The
+default is `5000`, or 5 seconds.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      lostConnectionTimeout={5000}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+You can listen to the event with [`useLostConnectionListener`][]. Note that this
+also affects when `others` are reset to an empty array after a disconnection.
+This helps prevent temporary flashes in your application as a user quickly
+disconnects and reconnects. For a demonstration of this behavior, see our
+[connection status example][].
+
+#### Background keep-alive timeout [#LiveblocksProviderBackgroundKeepAliveTimeout]
+
+By default, Liveblocks applications will maintain an active WebSocket connection
+to the Liveblocks servers, even when running in a browser tab that’s in the
+background. However, if you’d prefer for background tabs to disconnect after a
+period of inactivity, then you can use `backgroundKeepAliveTimeout`.
+
+When `backgroundKeepAliveTimeout` is specified, the client will automatically
+disconnect applications that have been in an unfocused background tab for _at
+least_ the specified time. When the browser tab is refocused, the client will
+immediately reconnect to the room and synchronize the document.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      // Disconnect users after 15 minutes of inactivity
+      backgroundKeepAliveTimeout={15 * 60 * 1000}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+`backgroundKeepAliveTimeout` accepts a number in milliseconds—we advise using a
+value of at least a few minutes, to avoid unnecessary disconnections.
+
+#### resolveUsers [#LiveblocksProviderResolveUsers]
+
+[Comments](/docs/ready-made-features/comments) stores user IDs in its system,
+but no other user information. To display user information in Comments
+components, such as a user’s name or avatar, you need to resolve these IDs into
+user objects. This function receives a list of user IDs and you should return a
+list of user objects of the same size, in the same order.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      resolveUsers={async ({ userIds }) => {
+        const usersData = await __getUsersFromDB__(userIds);
+
+        return usersData.map((userData) => ({
+          name: userData.name,
+          avatar: userData.avatar.src,
+        }));
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+The name and avatar you return are rendered in
+[`Thread`](/docs/api-reference/liveblocks-react-ui#Thread) components.
+
+##### User objects
+
+The user objects returned by the resolver function take the shape of
+`UserMeta["info"]`, which contains `name` and `avatar` by default. These two
+values are optional, though if you’re using the
+[Comments default components](/docs/api-reference/liveblocks-react-ui#Components),
+they are necessary. Here’s an example of `userIds` and the exact values
+returned.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      resolveUsers={async ({ userIds }) => {
+        // ["marc@example.com", "nimesh@example.com"];
+        console.log(userIds);
+
+        return [
+          { name: "Marc", avatar: "https://example.com/marc.png" },
+          { name: "Nimesh", avatar: "https://example.com/nimesh.png" },
+        ];
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+You can also return custom information, for example, a user’s `color`:
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      resolveUsers={async ({ userIds }) => {
+        // ["marc@example.com"];
+        console.log(userIds);
+
+        return [
+          {
+            name: "Marc",
+            avatar: "https://example.com/marc.png",
+            // +++
+            color: "purple",
+            // +++
+          },
+        ];
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+##### Accessing user data
+
+You can access any values set within `resolveUsers` with the
+[`useUser`](/docs/api-reference/liveblocks-react#useUser) hook.
+
+```tsx
+import { useUser } from "@liveblocks/react/suspense";
+
+function Component() {
+  const user = useUser("marc@example.com");
+
+  // { name: "Marc", avatar: "https://...", ... }
+  console.log(user);
+}
+```
+
+#### resolveRoomsInfo [#LiveblocksProviderResolveRoomsInfo]
+
+When using
+[Notifications](/docs/ready-made-features/comments/email-notifications) with
+[Comments](/docs/ready-made-features/comments), room IDs will be used to
+contextualize notifications (e.g. “Chris mentioned you in _room-id_”) in the
+[`InboxNotification`](/docs/api-reference/liveblocks-react-ui#InboxNotification)
+component. To replace room IDs with more fitting names (e.g. document names,
+“Chris mentioned you in _Document A_”), you can provide a resolver function to
+the `resolveRoomsInfo` option in [`LiveblocksProvider`](#LiveblocksProvider).
+
+This resolver function will receive a list of room IDs and should return a list
+of room info objects of the same size and in the same order.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      resolveRoomsInfo={async ({ roomIds }) => {
+        const documentsData = await __getDocumentsFromDB__(roomIds);
+
+        return documentsData.map((documentData) => ({
+          name: documentData.name,
+          // url: documentData.url,
+        }));
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+In addition to the room’s name, you can also provide a room’s URL as the `url`
+property. If you do so, the
+[`InboxNotification`](/docs/api-reference/liveblocks-react-ui#InboxNotification)
+component will automatically use it. It’s possible to use an inbox
+notification’s `roomId` property to construct a room’s URL directly in React and
+set it on
+[`InboxNotification`](/docs/api-reference/liveblocks-react-ui#InboxNotification)
+via `href`, but the room ID might not be enough for you to construct the URL ,
+you might need to call your backend for example. In that case, providing it via
+`resolveRoomsInfo` is the preferred way.
+
+#### resolveMentionSuggestions [#LiveblocksProviderResolveMentionSuggestions]
+
+To enable creating mentions in [Comments](/docs/ready-made-features/comments),
+you can provide a resolver function to the `resolveMentionSuggestions` option in
+[`LiveblocksProvider`](#LiveblocksProvider). These mentions will be displayed in
+the [`Composer`](/docs/api-reference/liveblocks-react-ui#Composer) component.
+
+This resolver function will receive the mention currently being typed (e.g. when
+writing “@jane”, `text` will be `jane`) and should return a list of user IDs
+matching that text. This function will be called every time the text changes but
+with some debouncing.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      resolveMentionSuggestions={async ({ text, roomId }) => {
+        const workspaceUsers = await __getWorkspaceUsersFromDB__(roomId);
+
+        if (!text) {
+          // Show all workspace users by default
+          return __getUserIds__(workspaceUsers);
+        } else {
+          const matchingUsers = __findUsers__(workspaceUsers, text);
+          return __getUserIds__(matchingUsers);
+        }
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+#### LiveblocksProvider for Node.js [#LiveblocksProviderNode]
+
+To use `@liveblocks/client` in Node.js, you need to provide [`WebSocket`][] and
+[`fetch`][] polyfills. As polyfills, we recommend installing [`ws`][] and
+[`node-fetch`][].
+
+```bash
+npm install ws node-fetch
+```
+
+Then, pass them to the `LiveblocksProvider` polyfill option as below.
+
+```tsx
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+import fetch from "node-fetch";
+import WebSocket from "ws";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      polyfills={{
+        fetch,
+        WebSocket,
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+Note that `node-fetch` v3+
+[does not support CommonJS](https://github.com/node-fetch/node-fetch/blob/main/docs/v3-UPGRADE-GUIDE.md#converted-to-es-module).
+If you are using CommonJS, downgrade `node-fetch` to v2.
+
+#### LiveblocksProvider for React Native [#LiveblocksProviderReactNative]
+
+To use `@liveblocks/client` with [React Native](https://reactnative.dev/), you
+need to add an [`atob`][] polyfill. As a polyfill, we recommend installing
+[`base-64`][].
+
+```bash
+npm install base-64
+```
+
+Then you can pass the `decode` function to our `atob` polyfill option when you
+create the client.
+
+```ts
+import { LiveblocksProvider } from "@liveblocks/react/suspense";
+import { decode } from "base-64";
+
+function App() {
+  return (
+    <LiveblocksProvider
+      polyfills={{
+        atob: decode,
+      }}
+
+      // Other props
+      // ...
+    >
+      {/* children */}
+    </LiveblocksProvider>
+  );
+}
+```
+
+### createLiveblocksContext
+
+<Banner title="Not recommended" type="warning">
+
+This used to be the default way to start your app, but now it’s recommended for
+advanced usage only. We generally recommend using [`LiveblocksProvider`][] and
+following [typing your data with the Liveblocks interface](#Typing-your-data),
+unless you need to define multiple room types in your application.
+
+</Banner>
+
+Creates a [`LiveblocksProvider`][] and a set of typed hooks. Note that any
+`LiveblocksProvider` created in this way takes no props, because it uses
+settings from the `client` instead. We recommend using it in
+`liveblocks.config.ts` and re-exporting your typed hooks like below.
+
+While [`createRoomContext`](#createRoomContext) offers APIs for interacting with
+rooms (e.g. Presence, Storage, and Comments),
+[`createLiveblocksContext`](#createLiveblocksContext) offers APIs for
+interacting with Liveblocks features that are not tied to a specific room (e.g.
+Notifications).
+
+```tsx file="liveblocks.config.ts"
+import { createClient } from "@liveblocks/client";
+import { createRoomContext, createLiveblocksContext } from "@liveblocks/react";
+
+const client = createClient({
+  // publicApiKey: "",
+  // authEndpoint: "/api/liveblocks-auth",
+  // throttle: 100,
+});
+
+// ...
+
+export const { RoomProvider } = createRoomContext(client);
+
+export const {
+  LiveblocksProvider,
+  useInboxNotifications,
+
+  // Other hooks
+  // ...
+} = createLiveblocksContext(client);
+```
+
+### useClient [@badge=LiveblocksProvider]
+
+Returns the [`client`](/docs/api-reference/liveblocks-client#Client) of the
+nearest [`LiveblocksProvider`][] above in the React component tree.
+
+```ts
+import { useClient } from "@liveblocks/react/suspense";
+
+const client = useClient();
+```
+
+### useErrorListener [@badge=LiveblocksProvider]
+
+Listen to potential Liveblocks errors. Examples of errors include room
+connection errors, errors creating threads, and errors deleting notifications.
+Each error has a `message` string, and a `context` object which has different
+values for each error type. `context` always contains an error `type` and
+`roomId`.
+
+```ts
+import { useErrorListener } from "@liveblocks/react/suspense";
+
+useErrorListener((error) => {
+  // { message: "You don't have access to this room", context: { ... }}
+  console.error(error);
+});
+```
+
+There are many different errors, and each can be handled separately by checking
+the value of `error.context.type`. Below we’ve listed each error and the context
+it provides.
+
+```ts title="All error types" isCollapsable isCollapsed
+import { useErrorListener } from "@liveblocks/react/suspense";
+
+useErrorListener((error) => {
+  switch (error.context.type) {
+    // Can happen if you use Presence, Storage, or Yjs
+    case "ROOM_CONNECTION_ERROR": {
+      const { code } = error.context;
+      // -1   = Authentication error
+      // 4001 = You don't have access to this room
+      // 4005 = Room was full
+      // 4006 = Room ID has changed
+      break;
+    }
+
+    // Can happen if you use Comments or Notifications
+    case "CREATE_THREAD_ERROR":
+      const { roomId, threadId, commentId, body, metadata } = error.context;
+      break;
+
+    case "DELETE_THREAD_ERROR":
+      const { roomId, threadId } = error.context;
+      break;
+
+    case "EDIT_THREAD_METADATA_ERROR":
+      const { roomId, threadId, metadata } = error.context;
+      break;
+
+    case "MARK_THREAD_AS_RESOLVED_ERROR":
+    case "MARK_THREAD_AS_UNRESOLVED_ERROR":
+      const { roomId, threadId } = error.context;
+      break;
+
+    case "CREATE_COMMENT_ERROR":
+    case "EDIT_COMMENT_ERROR":
+      const { roomId, threadId, commentId, body } = error.context;
+      break;
+
+    case "DELETE_COMMENT_ERROR":
+      const { roomId, threadId, commentId } = error.context;
+      break;
+
+    case "ADD_REACTION_ERROR":
+    case "REMOVE_REACTION_ERROR":
+      const { roomId, threadId, commentId, emoji } = error.context;
+      break;
+
+    case "MARK_INBOX_NOTIFICATION_AS_READ_ERROR":
+      const { inboxNotificationId, roomId } = error.context;
+      break;
+
+    case "DELETE_INBOX_NOTIFICATION_ERROR":
+      const { roomId } = error.context;
+      break;
+
+    case "MARK_ALL_INBOX_NOTIFICATIONS_AS_READ_ERROR":
+    case "DELETE_ALL_INBOX_NOTIFICATIONS_ERROR":
+      break;
+
+    case "UPDATE_NOTIFICATION_SETTINGS_ERROR":
+      const { roomId } = error.context;
+      break;
+
+    default:
+      // Ignore any error from the future
+      break;
+  }
+});
+```
+
+<Banner title="Hook changes in 2.16">
+
+The behavior of this hook changed in 2.16. Previously, this hook had to be in a
+[`RoomProvider`][] context, and would only trigger for connection errors in the
+current room. Since 2.16, this hook only requires a [`LiveblocksProvider`][]
+context, and will notify about any errors, and for any room. For example,
+notifications are not part of rooms, and errors for these will show. See the
+[upgrade guide for 2.6](/docs/platform/upgrading/2.16) for more details.
+
+</Banner>
+
+## Room
+
+### RoomProvider
+
+Makes a [`Room`][] available in the component hierarchy below. Joins the room
+when the component is mounted, and automatically leaves the room when the
+component is unmounted. When using
+[Sync Datastore](/docs/ready-made-features/sync-datastore), initial Presence
+values for each user, and Storage values for the room can be set.
+
+```tsx
+import { RoomProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return <RoomProvider id="my-room-id">{/* children */}</RoomProvider>;
+}
+```
+
+<PropertiesList title="Props">
+  <PropertiesListItem name="id" type="string" required>
+    The unique ID for the current room. `RoomProvider` will join this room when
+    it loads. If the room doesn’t exist already it will automatically create the
+    room first then join. After setting up
+    [authentication](/docs/authentication) for your app, it can helpful to
+    decide on a naming pattern for your room IDs.
+  </PropertiesListItem>
+  <PropertiesListItem name="initialPresence" type="JsonObject">
+    The initial Presence of the user entering the room. Each user has their own
+    presence, and this is readable for all other connected users. A user’s
+    Presence resets every time they disconnect. This object must be
+    JSON-serializable. This value is ignored after the first render. [Learn
+    more](#setting-initial-presence).
+  </PropertiesListItem>
+  <PropertiesListItem name="initialStorage" type="LsonObject">
+    The initial Storage structure for the room when it’s joined for the first
+    time. This is only set a single time, when the room has not yet been
+    populated. This object must contain [conflict-free live
+    structures](/docs/api-reference/liveblocks-client#Storage). This value is
+    ignored after the first render, and if Storage for the current room has
+    already been created. [Learn more](#setting-initial-storage).
+  </PropertiesListItem>
+  <PropertiesListItem name="autoConnect" type="boolean" defaultValue="true">
+    Whether the room immediately connects to Liveblocks servers. This value is
+    ignored after the first render.
+  </PropertiesListItem>
+</PropertiesList>
+
+#### Setting initial Presence [#setting-initial-presence]
+
+Presence is used for storing temporary user-based values, such as a user’s
+cursor coordinates, or their current selection. Each user has their own
+presence, and this is readable for all other connected users. Set your initial
+Presence value by using `initialPresence`.
+
+```tsx
+import { RoomProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <RoomProvider
+      id="my-room"
+      // +++
+      initialPresence={{
+        cursor: null,
+        colors: ["red", "purple"],
+        selection: {
+          id: 72426,
+        },
+      }}
+      // +++
+    >
+      {/* children */}
+    </RoomProvider>
+  );
+}
+```
+
+Each user’s Presence resets every time they disconnect, as this is only meant
+for temporary data. Any JSON-serializable object is allowed (the `JsonObject`
+type).
+
+#### Setting initial Storage [#setting-initial-storage]
+
+Storage is used to store permanent data that’s used in your application, such as
+shapes on a whiteboard, nodes on a flowchart, or text in a form. The first time
+a room is entered, you can set an initial value by using `initialStorage`.
+`initialStorage` is only read and set a single time, unless a new top-level
+property is added.
+
+```tsx
+import { LiveList, LiveObject, LiveMap } from "@liveblocks/client";
+import { RoomProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <RoomProvider
+      id="my-room"
+      initialPresence={}
+      // +++
+      initialStorage={{
+        title: "Untitled",
+        names: new LiveList(["Steven", "Guillaume"]),
+        shapes: new LiveMap([
+          ["g9shu0", new LiveObject({ type: "rectangle", color: "red" })],
+          ["djs3g5", new LiveObject({ type: "circle", color: "yellow" })],
+        ]),
+      }}
+      // +++
+    >
+      {/* children */}
+    </RoomProvider>
+  );
+}
+```
+
+If a new top-level property is added to `initialStorage`, the next time a user
+connects, the new property will be created. Other properties will be unaffected.
+Any
+[conflict-free live structures](/docs/api-reference/liveblocks-client#Storage)
+and JSON-serializable objects are allowed (the `LsonObject` type).
+
+### createRoomContext
+
+<Banner>
+
+This used to be the default way to start your app, but now it’s recommend for
+advanced usage only. We generally recommend using [`LiveblocksProvider`][] and
+following [typing your data with the Liveblocks interface](#Typing-your-data),
+unless you need to define multiple room types in your application.
+
+</Banner>
+
+Creates a [`RoomProvider`][] and a set of typed hooks to use in your app. Note
+that any `RoomProvider` created in this way does not need to be nested in
+[`LiveblocksProvider`][], as it already has access to the `client`. We generally
+recommend typing your app using the newer method instead. When using
+`createRoomContext` it can be helpful to use it in `liveblocks.config.ts` and
+re-export your typed hooks as below.
+
+```tsx file="liveblocks.config.ts"
+import { createClient } from "@liveblocks/client";
+import { createRoomContext } from "@liveblocks/react";
+
+const client = createClient({
+  // publicApiKey: "",
+  // authEndpoint: "/api/liveblocks-auth",
+});
+
+type Presence = {};
+type Storage = {};
+type UserMeta = {};
+type RoomEvent = {};
+type ThreadMetadata = {};
+
+// +++
+export const {
+  RoomProvider,
+  useMyPresence,
+
+  // Other hooks
+  // ...
+} = createRoomContext<Presence, Storage, UserMeta, RoomEvent, ThreadMetadata>(
+  client
+);
+// +++
+```
+
+#### Suspense with createRoomContext [#createRoomContext-Suspense]
+
+To use the React suspense version of our hooks with `createRoomContext`, you can
+export from the `suspense` property instead.
+
+```tsx file="liveblocks.config.ts"
+import { createClient } from "@liveblocks/client";
+import { createRoomContext } from "@liveblocks/react";
+
+const client = createClient({
+  // publicApiKey: "",
+  // authEndpoint: "/api/liveblocks-auth",
+});
+
+type Presence = {};
+type Storage = {};
+type UserMeta = {};
+type RoomEvent = {};
+type ThreadMetadata = {};
+
+export const {
+  // +++
+  suspense: {
+    RoomProvider,
+    useMyPresence,
+
+    // Other suspense hooks
+    // ...
+  },
+  // +++
+} = createRoomContext<Presence, Storage, UserMeta, RoomEvent, ThreadMetadata>(
+  client
+);
+```
+
+#### Typing createRoomContext
+
+To type your hooks, you can pass multiple different types to
+`createRoomContext`. A full explanation is in the code snippet below.
+
+```tsx file="liveblocks.config.ts" isCollapsable isCollapsed
+import { createClient } from "@liveblocks/client";
+import { createRoomContext } from "@liveblocks/react";
+
+const client = createClient({
+  // publicApiKey: "",
+  // authEndpoint: "/api/liveblocks-auth",
+});
+
+// Presence represents the properties that exist on every user in the Room
+// and that will automatically be kept in sync. Accessible through the
+// `user.presence` property. Must be JSON-serializable.
+type Presence = {
+  // cursor: { x: number, y: number } | null,
+  // ...
+};
+
+// Optionally, Storage represents the shared document that persists in the
+// Room, even after all users leave. Fields under Storage typically are
+// LiveList, LiveMap, LiveObject instances, for which updates are
+// automatically persisted and synced to all connected clients.
+type Storage = {
+  // animals: LiveList<string>,
+  // ...
+};
+
+// Optionally, UserMeta represents static/readonly metadata on each user, as
+// provided by your own custom auth back end (if used). Useful for data that
+// will not change during a session, like a user's name or avatar.
+// type UserMeta = {
+//   id?: string,  // Accessible through `user.id`
+//   info?: Json,  // Accessible through `user.info`
+// };
+
+// Optionally, the type of custom events broadcast and listened to in this
+// room. Use a union for multiple events. Must be JSON-serializable.
+// type RoomEvent = {};
+
+// Optionally, when using Comments, ThreadMetadata represents metadata on
+// each thread. Can only contain booleans, strings, and numbers.
+// export type ThreadMetadata = {
+//   pinned: boolean;
+//   quote: string;
+//   time: number;
+// };
+
+export const {
+  RoomProvider,
+  useMyPresence,
+  useStorage,
+
+  // Other hooks
+  // ...
+} = createRoomContext<
+  Presence,
+  Storage
+  /* UserMeta, RoomEvent, ThreadMetadata */
+>(client);
+```
+
+### useRoom [@badge=RoomProvider]
+
+Returns the [`Room`][] of the nearest [`RoomProvider`][] above in the React
+component tree.
+
+```ts
+import { useRoom } from "@liveblocks/react/suspense";
+
+const room = useRoom();
+```
+
+Will throw when used outside of a [`RoomProvider`][]. If you don’t want this
+hook to throw when used outside of a Room context (for example to write
+components in a way that they can be used both inside and outside of a
+Liveblocks room), you can use the `{ allowOutsideRoom }` option:
+
+```ts
+import { useRoom } from "@liveblocks/react/suspense";
+
+const room = useRoom({ allowOutsideRoom: true }); // Possibly `null`
+```
+
+### useIsInsideRoom [@badge=Both]
+
+Returns a boolean, `true` if the hook was called inside a
+[`RoomProvider`](/docs/api-reference/liveblocks-react#RoomProvider) context, and
+`false` otherwise.
+
+```ts
+import { useIsInsideRoom } from "@liveblocks/react/suspense";
+
+const isInsideRoom = useIsInsideRoom();
+```
+
+#### Displaying different components inside rooms
+
+`useIsInsideRoom` is helpful for rendering different components depending on
+whether they’re inside a room, or not. One example is a header component that
+only displays a live avatar stack when users are connected to the room.
+
+```tsx
+import { useIsInsideRoom, useOthers } from "@liveblocks/react/suspense";
+
+function Header() {
+  // +++
+  const isInsideRoom = useIsInsideRoom();
+  // +++
+
+  return (
+    <div>
+      // +++
+      {isInsideRoom ? <LiveAvatars /> : null}
+      // +++
+      <MyAvatar />
+    </div>
+  );
+}
+
+function LiveAvatars() {
+  const others = useOthers();
+  return others.map((other) => <img src={other.info.picture} />);
+}
+```
+
+Here’s how the example above would render in three different
+[`LiveblocksProvider`](/docs/api-reference/liveblocks-react#LiveblocksProvider)
+and [`RoomProvider`](/docs/api-reference/liveblocks-react#RoomProvider)
+contexts.
+
+```tsx
+// 👥👤 Live avatar stack and your avatar
+<LiveblocksProvider /* ... */>
+  <RoomProvider /* ... */>
+    <Header />
+  </RoomProvider>
+</LiveblocksProvider>
+
+
+// 👤 Just your avatar
+<LiveblocksProvider /* ... */>
+  <Header />
+</LiveblocksProvider>
+
+// 👤 Just your avatar
+<Header />
+```
+
+### useStatus [@badge=RoomProvider]
+
+Returns the current WebSocket connection status of the room, and will re-render
+your component whenever it changes.
+
+```ts
+import { useStatus } from "@liveblocks/react/suspense";
+
+const status = useStatus();
+```
+
+The possible value are: `initial`, `connecting`, `connected`, `reconnecting`, or
+`disconnected`.
+
+### useStorageStatus [@badge=RoomProvider]
+
+<Banner title="Deprecated">
+
+Deprecated. Starting with 2.12.0, we recommend using [`useSyncStatus`][] instead
+for tracking sync status, because it will reflect sync status of all parts of
+Liveblocks, not just Storage.
+
+</Banner>
+
+Returns the current storage status of the room, and will re-render your
+component whenever it changes. A `{ smooth: true }` option is also available,
+which prevents quick changes between states, making it ideal for
+[rendering a synchronization badge in your app](#display-synchronization-badge).
+
+```ts
+import { useStorageStatus } from "@liveblocks/react";
+
+const storageStatus = useStorageStatus();
+
+// "not-loaded" | "loading" | "synchronizing" | "synchronized"
+console.log(storageStatus);
+```
+
+👉 A [Suspense version][] of this hook is also available.
+
+```ts
+import { useStorageStatus } from "@liveblocks/react/suspense";
+
+const storageStatus = useStorageStatus();
+
+// "synchronizing" | "synchronized"
+console.log(storageStatus);
+```
+
+### useSyncStatus [@badge=Both]
+
+Returns the current synchronization status of Liveblocks, and will re-render
+your component whenever it changes. This includes any part of Liveblocks that
+may be synchronizing local changes to the server, including (any room’s)
+Storage, text editors, threads, or notifications.
+
+A `{ smooth: true }` option is also available, which prevents quick changes
+between states, making it ideal for
+[rendering a synchronization badge in your app](#display-synchronization-badge).
+
+```ts
+import { useSyncStatus } from "@liveblocks/react";
+
+const syncStatus = useSyncStatus();
+// "not-loaded" | "loading" | "synchronizing" | "synchronized"
+```
+
+👉 A [Suspense version][] of this hook is also available.
+
+```ts
+import { useSyncStatus } from "@liveblocks/react/suspense";
+
+const syncStatus = useSyncStatus();
+// "synchronizing" | "synchronized"
+```
+
+#### Display a synchronization badge [#display-synchronization-badge]
+
+Passing `{ smooth: true }` prevents the status changing from `"synchronizing"`
+to `"synchronized"` until 1 second has passed after the final change. This means
+it’s ideal for rendering a synchronization status badge, as it won’t flicker in
+a distracting manner when changes are made in quick succession.
+
+```tsx
+import { useSyncStatus } from "@liveblocks/react/suspense";
+
+function StorageStatusBadge() {
+  const syncStatus = useSyncStatus({ smooth: true });
+
+  return <div>{syncStatus === "synchronized" ? "✅ Saved" : "🔄 Saving"}</div>;
+}
+```
+
+#### Prevent users losing unsaved changes [#use-sync-status-prevent-users-losing-unsaved-changes]
+
+Liveblocks usually synchronizes milliseconds after a local change, but if a user
+immediately closes their tab, or if they have a slow connection, it may take
+longer for changes to synchronize. Enabling `preventUnsavedChanges` will stop
+tabs with unsaved changes closing, by opening a dialog that warns users. In
+usual circumstances, it will very rarely trigger.
+
+```tsx
+function Page() {
+  return (
+    <LiveblocksProvider
+      // highlight-next-line
+      preventUnsavedChanges
+
+      // Other options
+      // ...
+    >
+      ...
+    </LiveblocksProvider>
+  );
+}
+```
+
+More specifically, this option triggers when:
+
+- There are unsaved changes after calling any hooks or methods, in all of our
+  products.
+- There are unsaved changes in a
+  [Text Editor](/docs/ready-made-features/text-editor).
+- There’s an unsubmitted comment in the
+  [Composer](/docs/api-reference/liveblocks-react-ui#Composer).
+- The user has made changes and is currently offline.
+
+Internally, this option uses the
+[beforeunload event](https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeunload_event).
+
+### useOthersListener [@badge=RoomProvider]
+
+Calls the given callback when an “others” event occurs. Possible event types
+are:
+
+- `enter` – A user has entered the room.
+- `leave` – A user has left the room.
+- `reset` – The others list has been emptied. This is the first event that
+  occurs when the room is entered. It also occurs when you’ve lost connection to
+  the room.
+- `update` – A user’s presence data has been updated.
+
+```ts
+function App() {
+  useOthersListener(({ type, user, others }) => {
+    switch (type) {
+      case "enter":
+        // `user` has entered the room
+        break;
+
+      case "leave":
+        // `user` has left the room
+        break;
+
+      case "update":
+        // Presence for `user` has updated
+        break;
+
+      case "reset":
+        // Others list has been emptied
+        break;
+    }
+  });
+}
+```
+
+### useLostConnectionListener [@badge=RoomProvider]
+
+Calls the given callback in the exceptional situation that a connection is lost
+and reconnecting does not happen quickly enough.
+
+This event allows you to build high-quality UIs by warning your users that the
+app is still trying to re-establish the connection, for example through a toast
+notification. You may want to take extra care in the mean time to ensure their
+changes won’t go unsaved.
+
+When this happens, this callback is called with the event `lost`. Then, once the
+connection restores, the callback will be called with the value `restored`. If
+the connection could definitively not be restored, it will be called with
+`failed` (uncommon).
+
+The [`lostConnectionTimeout`][] client option will determine how quickly this
+event will fire after a connection loss (default: 5 seconds).
+
+```ts
+import { toast } from "my-preferred-toast-library";
+
+function App() {
+  useLostConnectionListener((event) => {
+    switch (event) {
+      case "lost":
+        toast.warn("Still trying to reconnect...");
+        break;
+
+      case "restored":
+        toast.success("Successfully reconnected again!");
+        break;
+
+      case "failed":
+        toast.error("Could not restore the connection");
+        break;
+    }
+  });
+}
+```
+
+Automatically unsubscribes when the component is unmounted.
+
+For a demonstration of this behavior, see our [connection status example][].
+
+## Presence
+
+<Banner title="Need help troubleshooting presence?">
+
+Try the [Liveblocks DevTools extension](/devtools) to visualize your
+collaborative experiences as you build them, in realtime.
+
+</Banner>
+
+### useMyPresence [@badge=RoomProvider]
+
+Return the presence of the current user, and a function to update it.
+Automatically subscribes to updates to the current user’s presence.
+
+Note that the `updateMyPresence` setter function is different to the setter
+function returned by React’s `useState` hook. Instead, you can pass a partial
+presence object to `updateMyPresence`, and any changes will be merged into the
+current presence. It will not replace the entire presence object.
+
+```ts
+import { useMyPresence } from "@liveblocks/react/suspense";
+
+const [myPresence, updateMyPresence] = useMyPresence();
+updateMyPresence({ x: 0 });
+updateMyPresence({ y: 0 });
+
+// At the next render, "myPresence" will be equal to "{ x: 0, y: 0 }"
+```
+
+This is roughly equal to:
+
+```tsx
+const myPresence = useSelf((me) => me.presence);
+const updateMyPresence = useUpdateMyPresence();
+```
+
+`updateMyPresence` accepts an optional argument to add a new item to the
+undo/redo stack. See [`room.history`][] for more information.
+
+```ts
+updateMyPresence({ selectedId: "xxx" }, { addToHistory: true });
+```
+
+### useUpdateMyPresence [@badge=RoomProvider]
+
+Returns a setter function to update the current user’s presence.
+
+Use this if you don’t need the current user’s presence in your component, but
+you need to update it (e.g. live cursor). It’s better to use
+`useUpdateMyPresence` because it won’t subscribe your component to get
+rerendered when the presence updates.
+
+Note that the `updateMyPresence` setter function is different to the setter
+function returned by React’s `useState` hook. Instead, you can pass a partial
+presence object to `updateMyPresence`, and any changes will be merged into the
+current presence. It will not replace the entire presence object.
+
+```ts
+import { useUpdateMyPresence } from "@liveblocks/react/suspense";
+
+const updateMyPresence = useUpdateMyPresence();
+
+updateMyPresence({ y: 0 });
+```
+
+`updateMyPresence` accepts an optional argument to add a new item to the
+undo/redo stack. See [`room.history`][] for more information.
+
+```ts
+updateMyPresence({ selectedId: "xxx" }, { addToHistory: true });
+```
+
+### useSelf [@badge=RoomProvider]
+
+Returns the current user once it is connected to the room, and automatically
+subscribes to updates to the current user.
+
+```ts
+import { useSelf } from "@liveblocks/react/suspense";
+
+const currentUser = useSelf();
+// {
+//   connectionId: 1,
+//   presence: { cursor: { x: 27, y: -8 } },
+// }
+
+const currentUser = useSelf((me) => me.presence.cursor);
+// { x: 27, y: -8 }
+```
+
+The benefit of using a selector is that it will only update your component if
+that particular selection changes. For full details, see [how selectors work][].
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+`null`.
+
+### useOthers [@badge=RoomProvider]
+
+Extracts data from the list of other users currently in the same Room, and
+automatically subscribes to updates on the selected data. For full details, see
+[how selectors work][].
+
+The `others` argument to the `useOthers` selector function is an _immutable_
+array of Users.
+
+```tsx
+// ✅ Rerenders only if the number of users changes
+const numOthers = useOthers((others) => others.length);
+
+// ✅ Rerenders only if someone starts or stops typing
+const isSomeoneTyping = useOthers((others) =>
+  others.some((other) => other.presence.isTyping)
+);
+
+// ✅ Rerenders only if actively typing users are updated
+const typingUsers = useOthers(
+  (others) => others.filter((other) => other.presence.isTyping),
+  shallow // 👈
+);
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+`null`.
+
+One caveat with this API is that selecting a subset of data for each user
+quickly becomes tricky. When you want to select and get updates for only a
+particular subset of each user’s data, we recommend using the
+[`useOthersMapped`][] hook instead, which is optimized for this use case.
+
+```tsx
+// ❌ Mapping is hard to get right with this hook
+const cursors = useOthers(
+  (others) => others.map((other) => other.presence.cursor),
+  shallow
+);
+
+// ✅ Better to use useOthersMapped
+const cursors = useOthersMapped((other) => other.presence.cursor);
+```
+
+When called without arguments, returns the user list and updates your component
+whenever _anything_ in it changes. This might be way more often than you want!
+
+```tsx
+const others = useOthers(); // ⚠️ Caution, might rerender often!
+// [
+//   { connectionId: 2, presence: { cursor: { x: 27, y: -8 } } },
+//   { connectionId: 3, presence: { cursor: { x: 0, y: 19 } } },
+// ]
+```
+
+<Banner type="error" title="Caution">
+
+In production-ready apps, you likely want to avoid calling `useOthers` without
+arguments.
+
+</Banner>
+
+### useOthersMapped [@badge=RoomProvider]
+
+Extract data using a [selector][] for every user in the room, and subscribe to
+all changes to the selected data. A [Suspense version][] of this hook is also available.
+
+The key difference with [`useOthers`][] is that the selector (and the optional
+comparison function) work at the _item_ level, like doing a `.map()` over the
+others array.
+
+```tsx
+// Example 1
+const others = useOthersMapped((other) => other.presence.cursor);
+// [
+//   [2, { x: 27, y: -8 }],
+//   [3, { x: 0, y: 19 }],
+// ]
+
+// Example 2
+const others = useOthersMapped(
+  (other) => ({
+    avatar: other.info.avatar,
+    isTyping: other.presence.isTyping,
+  }),
+  shallow // 👈
+);
+
+// [
+//   [2, { avatar: 'https://...', isTyping: true }],
+//   [3, { avatar: null, isTyping: false }],
+// ]
+```
+
+Returns an array where each item is a pair of `[connectionId, data]`. For
+pragmatic reasons, the results are keyed by the `connectionId`, because in most
+cases you’ll want to iterate over the results and draw some UI for each, which
+in React requires you to use a `key={connectionId}` prop.
+
+```tsx
+const others = useOthersMapped((other) => other.presence.cursor);
+
+// In JSX
+return (
+  <>
+    {others.map(([connectionId, cursor]) => (
+      <Cursor key={connectionId} x={cursor.x} y={cursor.y} />
+    ))}
+  </>
+);
+```
+
+### useOthersConnectionIds [@badge=RoomProvider]
+
+Returns an array of connection IDs (numbers), and rerenders automatically when
+users join or leave. This hook is useful in particular in combination with the
+[`useOther`][] (singular) hook, to implement high-frequency rerendering of
+components for each user in the room, e.g. cursors. See the [`useOther`][]
+(singular) documentation below for a full usage example.
+
+```tsx
+useOthersConnectionIds(); // [2, 4, 7]
+```
+
+Roughly equivalent to:
+
+```tsx
+useOthers((others) => others.map((other) => other.connectionId), shallow);
+```
+
+👉 A [Suspense version][] of this hook is also available.
+
+### useOther [@badge=RoomProvider]
+
+Extract data using a [selector][] for one specific user in the room, and
+subscribe to all changes to the selected data. A [Suspense version][] of this hook
+is also available.
+
+```tsx
+// ✅ Rerenders when this specific user’s isTyping changes (but not when their cursor changes)
+const isTyping = useOther(
+  3, // User with connectionId 3
+  (user) => user.presence.isTyping
+);
+```
+
+The reason this hook exists is to enable the most efficient rerendering model
+for high-frequency updates to other’s presences, which is the following
+structure:
+
+```tsx file="Cursors.tsx"
+const Cursors =
+  // +++
+  // (1) Wrap parent component in a memo and make sure it takes no props
+  React.memo(function () {
+    const othersConnectionIds = useOthersConnectionIds(); // (2)
+    // +++
+    return (
+      <>
+        {othersConnectionIds.map((connectionId) => (
+          <Cursor
+            // +++
+            key={connectionId} // (3)
+            // +++
+            connectionId={connectionId}
+          />
+        ))}
+      </>
+    );
+  });
+```
+
+```tsx file="Cursor.tsx"
+function Cursor({ connectionId }) {
+  // +++
+  const { x, y } = useOther(connectionId, (other) => other.presence.cursor); // (4)
+  // +++
+  return <Cursor x={x} y={y} />;
+}
+```
+
+1. Makes sure this whole component tree will never rerender beyond the first
+   time.
+2. Makes sure the parent component only rerenders when users join/leave.
+3. Makes sure each cursor remains associated to the same connection.
+4. Makes sure each cursor rerenders whenever _its_ data changes only.
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+`null`.
+
+## Broadcast
+
+### useBroadcastEvent [@badge=RoomProvider]
+
+Returns a callback that lets you broadcast custom events to other users in the
+room.
+
+```ts
+import { useBroadcastEvent } from "@liveblocks/react/suspense";
+
+// +++
+// On client A
+const broadcast = useBroadcastEvent();
+broadcast({ type: "EMOJI", emoji: "🔥" });
+// +++
+
+// On client B
+useEventListener(({ event, user, connectionId }) => {
+  //                       ^^^^ Will be Client A
+  if (event.type === "EMOJI") {
+    // Do something
+  }
+});
+```
+
+### useEventListener [@badge=RoomProvider]
+
+Listen to custom events sent by other people in the room via
+[`useBroadcastEvent`][]. Provides the `event` along with the `connectionId` of
+the user that sent the message. If an event was sent from the
+[Broadcast to a room](/docs/api-reference/rest-api-endpoints#post-broadcast-event)
+REST API, `connectionId` will be `-1`.
+
+```ts
+import { useEventListener } from "@liveblocks/react/suspense";
+
+// On client A
+const broadcast = useBroadcastEvent();
+broadcast({ type: "EMOJI", emoji: "🔥" });
+
+// +++
+// On client B
+useEventListener(({ event, user, connectionId }) => {
+  //                       ^^^^ Will be Client A
+  if (event.type === "EMOJI") {
+    // Do something
+  }
+});
+// +++
+```
+
+The `user` property will indicate which User instance sent the message. This
+will typically be equal to one of the others in the room, but it can also be
+`null` in case this event was broadcasted from the server, using the
+[Broadcast Event API](https://liveblocks.io/docs/api-reference/rest-api-endpoints#post-broadcast-event).
+
+Automatically unsubscribes when the component is unmounted.
+
+## Storage
+
+Each room contains Storage, a conflict-free data store that multiple users can
+edit at the same time. When users make edits simultaneously, conflicts are
+resolved automatically, and each user will see the same state. Storage is ideal
+for storing permanent document state, such as shapes on a canvas, notes on a
+whiteboard, or cells in a spreadsheet.
+
+### Data structures
+
+Storage provides three different conflict-free data structures, which you can
+use to build your application. All structures are permanent and persist when all
+users have left the room, unlike [Presence](/docs/ready-made-features/presence)
+which is temporary.
+
+- [`LiveObject`][] - Similar to JavaScript object. Use this for storing records
+  with fixed key names and where the values don’t necessarily have the same
+  types. For example, a `Person` with a `name: string` and an `age: number`
+  field. If multiple clients update the same property simultaneously, the last
+  modification received by the Liveblocks servers is the winner.
+
+- [`LiveList`][] - An ordered collection of items synchronized across clients.
+  Even if multiple users add/remove/move elements simultaneously, LiveList will
+  solve the conflicts to ensure everyone sees the same collection of items.
+
+- [`LiveMap`][] - Similar to a JavaScript Map. Use this for indexing values that
+  all have the same structure. For example, to store an index of `Person` values
+  by their name. If multiple users update the same property simultaneously, the
+  last modification received by the Liveblocks servers is the winner.
+
+### Typing Storage [#typing-storage]
+
+To type the Storage values you receive, make sure to set your `Storage` type.
+
+```ts
+import { LiveList } from "@liveblocks/client";
+
+declare global {
+  interface Liveblocks {
+    Storage: {
+      animals: LiveList<string>;
+    };
+  }
+}
+```
+
+You can then set an initial value in [`RoomProvider`][].
+
+```tsx
+import { LiveList } from "@liveblocks/client";
+import { RoomProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <RoomProvider
+      id="my-room-name"
+      // +++
+      initialStorage={{ animals: new LiveList(["Fido"]) }}
+      // +++
+    >
+      {/* children */}
+    </RoomProvider>
+  );
+}
+```
+
+The type received in your Storage will match the type passed. Learn more under
+[typing your data](#typing-your-data).
+
+```tsx
+import { useMutation } from "@liveblocks/react/suspense";
+
+function App() {
+  const addAnimal = useMutation(({ storage }) => {
+    const animals = storage.get("animals");
+
+    // LiveList<["Fido"]>
+    console.log(animals);
+
+    animals.push("Felix");
+
+    // LiveList<["Fido", "Felix"]>
+    console.log(animals);
+  });
+
+  return <button onClick={addAnimal}>Add animal</button>;
+}
+```
+
+[`useStorage`][] will return an immutable copy of the data, for example a
+`LiveList` is converted to an `array`, which makes it easy to render.
+
+```tsx
+import { useStorage } from "@liveblocks/react/suspense";
+
+function App() {
+  const animals = useStorage((root) => root.animals);
+
+  // ["Fido", "Felix"]
+  console.log(animals);
+
+  return (
+    <ul>
+      {animals.map((animal) => (
+        <li key={animal}>{animal}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Nesting data structures
+
+All Storage data structures can be nested, allowing you to create complex trees
+of conflict-free data.
+
+```ts
+import { LiveObject, LiveList, LiveMap } from "@liveblocks/client";
+
+type Person = LiveObject<{
+  name: string;
+  pets: LiveList<string>;
+}>;
+
+declare global {
+  interface Liveblocks {
+    Storage: {
+      people: LiveMap<string, Person>;
+    };
+  }
+}
+```
+
+Here’s an example of setting `initialStorage` for this type.
+
+```tsx
+import { LiveObject, LiveList, LiveMap } from "@liveblocks/client";
+import { RoomProvider } from "@liveblocks/react/suspense";
+
+function App() {
+  return (
+    <RoomProvider
+      id="my-room-name"
+      initialStorage={{
+        // +++
+        people: new LiveMap([
+          [
+            "alicia",
+            new LiveObject({
+              name: "Alicia",
+              pets: new LiveList(["Fido", "Felix"]),
+            }),
+          ],
+        ]),
+        // +++
+      }}
+    >
+      {/* children */}
+    </RoomProvider>
+  );
+}
+```
+
+<Banner title="Need help troubleshooting Storage?">
+
+Get the [Liveblocks DevTools extension](/devtools) to develop and debug your
+application as you build it.
+
+</Banner>
+
+### useStorage [@badge=RoomProvider]
+
+Extracts data from Liveblocks Storage state and automatically subscribes to
+updates to that selected data. For full details, see [how selectors work][].
+
+```tsx
+// ✅ Rerenders if todos (or their children) change
+const items = useStorage((root) => root.todos);
+
+// ✅ Rerenders when todos are added or deleted
+const numTodos = useStorage((root) => root.todos.length);
+
+// ✅ Rerenders when the value of allDone changes
+const allDone = useStorage((root) => root.todos.every((item) => item.done));
+
+// ✅ Rerenders if any _unchecked_ todo items change
+const uncheckedItems = useStorage(
+  (root) => root.todos.filter((item) => !item.done),
+  shallow // 👈
+);
+```
+
+The `root` argument to the `useStorage` selector function is an _immutable_ copy
+of your entire Liveblocks Storage tree. Think of it as the value you provided in
+the `initialStorage` prop at the [`RoomProvider`][] level, but then
+(recursively) converted to their “normal” JavaScript equivalents (objects,
+arrays, maps) that are read-only.
+
+From that immutable `root`, you can select or compute any value you like. Your
+component will automatically get rerendered if the value you return differs from
+the last rendered value.
+
+This hook returns `null` while storage is still loading. To avoid that, use the
+[Suspense version][].
+
+<Banner type="success" title="Avoiding unnecessary rerenders">
+
+It’s recommended to select only the subset of Storage data that your component
+needs. This will avoid unnecessary rerenders that happen with overselection.
+
+In order to select one item from a LiveMap within the storage tree with the
+`useStorage` method, you can use the example below:
+
+```ts
+const key = "errands";
+const myTodos = useStorage((root) => root.todoMap.get(key));
+```
+
+In order to query a LiveMap, and filter for specific values:
+
+```ts
+const myTodos = useStorage(
+  root => Array.from(root.todoMap.values()).filter(...),
+  shallow,
+);
+```
+
+</Banner>
+
+### useBatch [@badge=RoomProvider]
+
+<Banner title="Deprecated">
+
+Deprecated, starting with 0.18, we recommend using [`useMutation`][] for writing
+to Storage, which will automatically batch all mutations.
+
+</Banner>
+
+Returns a function that batches Storage and Presence modifications made during
+the given function. Each modification is grouped together, which means that
+other clients receive the changes as a single message after the batch function
+has run. Every modification made during the batch is merged into a single
+history item (undo/redo).
+
+```tsx
+import { useBatch } from "@liveblocks/react/suspense";
+
+const batch = useBatch();
+batch(() => {
+  // All modifications made in this callback are batched
+});
+```
+
+Note that `batch` cannot take an `async` function.
+
+```tsx
+// ❌ Won't work
+batch(async () => /* ... */);
+
+// ✅ Will work
+batch(() => /*... */);
+```
+
+### useHistory [@badge=RoomProvider]
+
+Returns the room’s history. See [`Room.history`][] for more information.
+
+```ts
+import { useHistory } from "@liveblocks/react/suspense";
+
+const { undo, redo, pause, resume } = useHistory();
+```
+
+### useUndo [@badge=RoomProvider]
+
+Returns a function that undoes the last operation executed by the current
+client. It does not impact operations made by other clients.
+
+```ts
+import { useUndo } from "@liveblocks/react/suspense";
+
+const undo = useUndo();
+```
+
+### useRedo [@badge=RoomProvider]
+
+Returns a function that redoes the last operation executed by the current
+client. It does not impact operations made by other clients.
+
+```ts
+import { useRedo } from "@liveblocks/react/suspense";
+
+const redo = useRedo();
+```
+
+### useCanUndo [@badge=RoomProvider]
+
+Returns whether there are any operations to undo.
+
+```ts
+import { useCanUndo, useUpdateMyPresence } from "@liveblocks/react/suspense";
+
+const updateMyPresence = useUpdateMyPresence();
+const canUndo = useCanUndo();
+
+updateMyPresence({ y: 0 });
+
+// At the next render, "canUndo" will be true
+```
+
+### useCanRedo [@badge=RoomProvider]
+
+Returns whether there are any operations to redo.
+
+```ts
+import {
+  useCanRedo,
+  useUndo,
+  useUpdateMyPresence,
+} from "@liveblocks/react/suspense";
+
+const updateMyPresence = useUpdateMyPresence();
+const undo = useUndo();
+const canRedo = useCanRedo();
+
+updateMyPresence({ y: 0 });
+undo();
+
+// At the next render, "canRedo" will be true
+```
+
+### useMutation [@badge=RoomProvider]
+
+Creates a callback function that lets you mutate Liveblocks state.
+
+```tsx
+import { useMutation } from "@liveblocks/react/suspense";
+
+const fillWithRed = useMutation(
+  // Mutation context is passed as the first argument
+  ({ storage, setMyPresence }) => {
+    // Mutate Storage
+    storage.get("shapes").get("circle1").set("fill", "red");
+    //                                   ^^^
+
+    // ...or Presence
+    setMyPresence({ lastUsedColor: "red" });
+  },
+  []
+);
+
+// JSX
+return <button onClick={fillWithRed} />;
+```
+
+To make the example above more flexible and work with _any_ color, you have two
+options:
+
+1. Close over a local variable and
+   [adding it to the dependency array](#useMutation-dep-arrays), or
+2. Have it take [an extra callback parameter](#useMutation-extra-params).
+
+Both are equally fine, just a matter of preference.
+
+#### With dependency arrays [#useMutation-dep-arrays]
+
+```tsx
+// Local state maintained outside Liveblocks
+const [currentColor, setCurrentColor] = useState("red");
+
+const fillWithCurrentColor = useMutation(
+  ({ storage, setMyPresence }) => {
+    storage.get("shapes").get("circle1").set("fill", currentColor);
+    setMyPresence({ lastUsedColor: currentColor });
+  },
+  // +++
+  [currentColor] // Works just like it would in useCallback
+  // +++
+);
+
+// JSX
+return <button onClick={fillWithCurrentColor} />;
+```
+
+<Banner type="success" title="Tip! Let ESLint check your dependencies">
+
+If you use ESLint, we recommend to
+[configure it to enforce](/docs/api-reference/liveblocks-react#useMutation-lint-rule)
+the correct use of your dependency arrays.
+
+</Banner>
+
+#### With extra callback parameters [#useMutation-extra-params]
+
+Alternatively, you can add extra parameters to your callback function:
+
+```tsx
+const fill = useMutation(
+  // +++
+  // Note the second argument
+  ({ storage, setMyPresence }, color: string) => {
+    // +++
+    storage.get("shapes").get("circle1").set("fill", color);
+    setMyPresence({ lastUsedColor: color });
+  },
+  []
+);
+
+// JSX
+// +++
+return <button onClick={() => fill("red")} />;
+//                            ^^^^^^^^^^^ Now fill takes a color argument
+// +++
+```
+
+#### Depending on current presence [#useMutation-presence]
+
+For convenience, the mutation context also receives `self` and `others`
+arguments, which are _immutable_ values reflecting the current Presence state,
+in case your mutation depends on it.
+
+For example, here’s a mutation that will delete all the shapes selected by the
+current user.
+
+```tsx
+const deleteSelectedShapes = useMutation(
+  // You can use current "self" or "others" state in the mutation
+  // +++
+  ({ storage, self, others, setMyPresence }) => {
+    // +++
+    // Delete the selected shapes
+    const shapes = storage.get("shapes");
+    // +++
+    for (const shapeId of self.presence.selectedShapeIds) {
+      // +++
+      shapes.delete(shapeId);
+    }
+
+    // Clear the current selection
+    setMyPresence({ selectedShapeIds: [] });
+  },
+  []
+);
+
+// JSX
+return <button onClick={deleteSelectedShapes} />;
+```
+
+Mutations are automatically batched, so when using `useMutation` there’s no need
+to use `useBatch`, or call `room.batch()` manually.
+
+#### ESLint rule [#useMutation-lint-rule] [@keywords=["exhaustive-deps", "additionalHooks", "eslint-plugin-react-hooks"]]
+
+If you are using ESLint in your project, and are using
+[the React hooks plugin](https://reactjs.org/docs/hooks-rules.html#eslint-plugin),
+we recommend to add a check for "additional hooks", so that it will also check
+the dependency arrays of your `useMutation` calls:
+
+```js
+{
+  "rules": {
+    // ...
+    "react-hooks/exhaustive-deps": ["warn", {
+      "additionalHooks": "useMutation"
+    }]
+  }
+}
+```
+
+## Comments
+
+### useThreads [@badge=RoomProvider]
+
+Returns the threads within the current room.
+
+```tsx
+import { useThreads } from "@liveblocks/react/suspense";
+
+const { threads, error, isLoading } = useThreads();
+```
+
+`useThreads` supports a few options as its first argument, one is `query` and it
+can be used to filter threads based on their metadata or resolved status.
+
+```tsx
+// Returns threads that match the entire `query`, e.g. { color: "blue", pinned: true, ... }
+const { threads } = useThreads({
+  query: {
+    // Filter for unresolved threads
+    resolved: false,
+
+    metadata: {
+      // Filter for threads that contain specific string, boolean, and number data
+      color: "blue",
+      pinned: true,
+      priority: 3,
+
+      // Filter for threads with string metadata that starts with a certain value
+      organization: {
+        startsWith: "liveblocks:",
+      },
+    },
+  },
+});
+```
+
+Another option is `scrollOnLoad`, which is enabled by default. When enabled, if
+the URL’s hash is set to a comment ID (e.g.
+`https://example.com/my-room#cm_xxx`), the page will scroll to that comment once
+the threads are loaded.
+
+By default, the `useThreads` hook returns up to 50 threads. To fetch more, the
+hook (along with [`useInboxNotifications`][]) provides additional fields for
+pagination.
+
+```tsx
+import { useThreads } from "@liveblocks/react";
+
+const {
+  isLoading,
+  error,
+  threads,
+
+  +++
+  // Available in Liveblocks 2.9
+  fetchMore,
+  isFetchingMore,
+  hasFetchedAll,
+  fetchMoreError,
+  +++
+} = useThreads({ query });
+```
+
+The `hasFetchedAll` field indicates whether all available threads have been
+fetched since the initial load. To load more threads, you can call the
+`fetchMore` function. This function is safe to call even if no more threads are
+available or a fetch is already in progress—it simply won't do anything in that
+case. Therefore, you don't need to check `hasFetchedAll` or `isFetchingMore`
+before calling `fetchMore`.
+
+The following example demonstrates how to use the `fetchMore` function to
+implement a "Load More" button, which fetches additional threads when clicked.
+The button is disabled while fetching is in progress.
+
+```tsx
+<div>
+  {threads.map((thread) => (
+    <Thread key={thread.id} />
+  ))}
+
+  {hasFetchedAll ? (
+    <div>🎉 You're all caught up!</div>
+  ) : (
+    <button disabled={isFetchingMore} onClick={fetchMore}>
+      Load more
+    </button>
+  )}
+</div>
+```
+
+Error handling is another important aspect to consider when using the
+`useThreads` hook. The `error` and `fetchMoreError` fields provide information
+about any errors that occurred during the initial fetch or subsequent fetch
+operations, respectively. You can use these fields to display appropriate error
+messages to the user and implement retry mechanisms if needed.
+
+The following example shows how to display error messages for both initial
+loading errors and errors that occur when fetching more threads.
+
+```tsx
+import { useThreads } from "@liveblocks/react";
+
+const { threads, error, fetchMore, fetchMoreError } = useThreads();
+
+// Handle error if the initial load failed.
+// The `error` field is not returned by the Suspense hook as the error is thrown to nearest ErrorBoundary
+if (error) {
+  return (
+    <div>
+      <p>Error loading threads: {error.message}</p>
+    </div>
+  );
+}
+
+return (
+  <div>
+    {threads.map((thread) => (
+      <Thread key={thread.id}>...</Thread>
+    ))}
+
+    {fetchMoreError && (
+      <div>
+        <p>Error loading more threads: {fetchMoreError.message}</p>
+        <button onClick={fetchMore}>Retry</button>
+      </div>
+    )}
+  </div>
+);
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw error to the nearest ErrorBoundary if initial load
+failed.
+
+### useThreadSubscription [@badge=RoomProvider]
+
+Returns the subscription status of a thread.
+
+```tsx
+import { useThreadSubscription } from "@liveblocks/react/suspense";
+
+const { status, unreadSince } = useThreadSubscription("th_xxx");
+```
+
+### useCreateThread [@badge=RoomProvider]
+
+Returns a function that creates a thread with an initial comment, and optionally
+some metadata.
+
+```tsx
+import { useCreateThread } from "@liveblocks/react/suspense";
+
+const createThread = useCreateThread();
+const thread = createThread({ body: {}, attachments: [], metadata: {} });
+```
+
+### useDeleteThread [@badge=RoomProvider]
+
+Returns a function that deletes a thread and all its associated comments by ID.
+Only the thread creator can delete the thread.
+
+```tsx
+import { useDeleteThread } from "@liveblocks/react/suspense";
+
+const deleteThread = useDeleteThread();
+deleteThread("th_xxx");
+```
+
+### useEditThreadMetadata [@badge=RoomProvider]
+
+Returns a function that edits a thread’s metadata.
+
+<Banner title="Deleting properties">
+
+To delete an existing metadata property, set its value to `null`. Passing
+`undefined` for a metadata property will ignore it.
+
+</Banner>
+
+```tsx
+import { useEditThreadMetadata } from "@liveblocks/react/suspense";
+
+const editThreadMetadata = useEditThreadMetadata();
+editThreadMetadata({ threadId: "th_xxx", metadata: {} });
+```
+
+### useMarkThreadAsResolved [@badge=RoomProvider]
+
+Returns a function that marks a thread as resolved.
+
+```tsx
+import { useMarkThreadAsResolved } from "@liveblocks/react/suspense";
+
+const markThreadAsResolved = useMarkThreadAsResolved();
+markThreadAsResolved("th_xxx");
+```
+
+### useMarkThreadAsUnresolved [@badge=RoomProvider]
+
+Returns a function that marks a thread as unresolved.
+
+```tsx
+import { useMarkThreadAsUnresolved } from "@liveblocks/react/suspense";
+
+const markThreadAsUnresolved = useMarkThreadAsUnresolved();
+markThreadAsUnresolved("th_xxx");
+```
+
+### useMarkThreadAsRead [@badge=RoomProvider]
+
+Returns a function that marks a thread as read.
+
+```tsx
+import { useMarkThreadAsRead } from "@liveblocks/react/suspense";
+
+const markThreadAsRead = useMarkThreadAsRead();
+markThreadAsRead("th_xxx");
+```
+
+### useCreateComment [@badge=RoomProvider]
+
+Returns a function that adds a comment to a thread.
+
+```tsx
+import { useCreateComment } from "@liveblocks/react/suspense";
+
+const createComment = useCreateComment();
+const comment = createComment({
+  threadId: "th_xxx",
+  body: {},
+  attachments: [],
+});
+```
+
+### useEditComment[@badge=RoomProvider]
+
+Returns a function that edits a comment’s body.
+
+```tsx
+import { useEditComment } from "@liveblocks/react/suspense";
+
+const editComment = useEditComment();
+editComment({
+  threadId: "th_xxx",
+  commentId: "cm_xxx",
+  body: {},
+  attachments: [],
+});
+```
+
+### useDeleteComment [@badge=RoomProvider]
+
+Returns a function that deletes a comment. If it is the last non-deleted
+comment, the thread also gets deleted.
+
+```tsx
+import { useDeleteComment } from "@liveblocks/react/suspense";
+
+const deleteComment = useDeleteComment();
+deleteComment({ threadId: "th_xxx", commentId: "cm_xxx" });
+```
+
+### useAddReaction [@badge=RoomProvider]
+
+Returns a function that adds a reaction to a comment.
+
+```tsx
+import { useAddReaction } from "@liveblocks/react/suspense";
+
+const addReaction = useAddReaction();
+addReaction({ threadId: "th_xxx", commentId: "cm_xxx", emoji: "👍" });
+```
+
+### useRemoveReaction [@badge=RoomProvider]
+
+Returns a function that removes a reaction from a comment.
+
+```tsx
+import { useRemoveReaction } from "@liveblocks/react/suspense";
+
+const removeReaction = useRemoveReaction();
+removeReaction({ threadId: "th_xxx", commentId: "cm_xxx", emoji: "👍" });
+```
+
+### useAttachmentUrl [@badge=RoomProvider]
+
+Returns a presigned URL for an attachment by its ID.
+
+```tsx
+import { useAttachmentUrl } from "@liveblocks/react/suspense";
+
+const { url, error, isLoading } = useAttachmentUrl("at_xxx");
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw when there’s an error.
+
+## Notifications
+
+### useInboxNotifications [@badge=LiveblocksProvider]
+
+Returns the inbox notifications for the current user. Inbox notifications are
+[project-based](/docs/ready-made-features/notifications/concepts#Project-based),
+meaning notifications from outside the current room are received.
+
+```tsx
+import { useInboxNotifications } from "@liveblocks/react/suspense";
+
+const { inboxNotifications, error, isLoading } = useInboxNotifications();
+```
+
+By default, the `useInboxNotifications` hook returns up to 50 notifications. To
+fetch more, the hook provides additional fields for pagination, similar to
+[`useThreads`][].
+
+```tsx
+import { useInboxNotifications } from "@liveblocks/react";
+
+const {
+  inboxNotifications,
+  isLoading,
+  error,
+
+  +++
+  hasFetchedAll,
+  fetchMore,
+  isFetchingMore,
+  fetchMoreError,
+  +++
+} = useInboxNotifications();
+```
+
+- `hasFetchedAll` indicates whether all available inbox notifications have been
+  fetched.
+- `fetchMore` loads up to 50 more notifications, and is always safe to call.
+- `isFetchingMore` indicates whether more notifications are being fetched.
+- `fetchMoreError` returns error statuses resulting from fetching more.
+
+#### Pagination [#useInboxNotifications-pagination]
+
+The following example demonstrates how to use the `fetchMore` function to
+implement a “Load More” button, which fetches additional inbox notifications
+when clicked. The button is disabled while fetching is in progress.
+
+```tsx
+import { InboxNotification } from "@liveblocks/react-ui";
+import { useInboxNotifications } from "@liveblocks/react/suspense";
+
+function Inbox() {
+  const { inboxNotifications, hasFetchedAll, fetchMore, isFetchingMore } =
+    useInboxNotifications();
+
+  return (
+    <div>
+      {inboxNotifications.map((notification) => (
+        <InboxNotification key={notification.id}>...</InboxNotification>
+      ))}
+      // +++
+      {hasFetchedAll ? (
+        <div>🎉 You're all caught up!</div>
+      ) : (
+        <button disabled={isFetchingMore} onClick={fetchMore}>
+          Load more
+        </button>
+      )}
+      // +++
+    </div>
+  );
+}
+```
+
+#### Error handling [#useInboxNotifications-error-handling]
+
+Error handling is another important aspect to consider when using the
+`useInboxNotifications` hook. The `error` and `fetchMoreError` fields provide
+information about any errors that occurred during the initial fetch or
+subsequent fetch operations, respectively. You can use these fields to display
+appropriate error messages to the user and implement retry mechanisms if needed.
+
+The following example shows how to display error messages for both initial
+loading errors and errors that occur when fetching more inbox notifications.
+
+```tsx
+import { InboxNotification } from "@liveblocks/react-ui";
+import { useInboxNotifications } from "@liveblocks/react/suspense";
+
+function Inbox() {
+  const { inboxNotifications, error, fetchMore, fetchMoreError } =
+    useInboxNotifications();
+
+  // Handle error if the initial load failed.
+  // The `error` field is not returned by the Suspense hook as the error is thrown to nearest ErrorBoundary
+  // +++
+  if (error) {
+    return (
+      <div>
+        <p>Error loading inbox notifications: {error.message}</p>
+      </div>
+    );
+  }
+  // +++
+
+  return (
+    <div>
+      {inboxNotifications.map((notification) => (
+        <InboxNotification key={notification.id}>...</InboxNotification>
+      ))}
+
+      {fetchMoreError && (
+        <div>
+          <p>
+            Error loading more inbox notifications: {fetchMoreError.message}
+          </p>
+          <button onClick={fetchMore}>Retry</button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw error to the nearest ErrorBoundary if initial load
+failed.
+
+### useUnreadInboxNotificationsCount [@badge=LiveblocksProvider]
+
+Returns the number of unread inbox notifications for the current user.
+
+```tsx
+import { useUnreadInboxNotificationsCount } from "@liveblocks/react/suspense";
+
+const { count, error, isLoading } = useUnreadInboxNotificationsCount();
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw when there’s an error.
+
+### useMarkInboxNotificationAsRead [@badge=LiveblocksProvider]
+
+Returns a function that marks an inbox notification as read for the current
+user.
+
+```tsx
+import { useMarkInboxNotificationAsRead } from "@liveblocks/react/suspense";
+
+const markInboxNotificationAsRead = useMarkInboxNotificationAsRead();
+markInboxNotificationAsRead("in_xxx");
+```
+
+### useMarkAllInboxNotificationsAsRead [@badge=LiveblocksProvider]
+
+Returns a function that marks all of the current user‘s inbox notifications as
+read.
+
+```tsx
+import { useMarkAllInboxNotificationsAsRead } from "@liveblocks/react/suspense";
+
+const markAllInboxNotificationsAsRead = useMarkAllInboxNotificationsAsRead();
+markAllInboxNotificationsAsRead();
+```
+
+### useDeleteInboxNotification [@badge=LiveblocksProvider]
+
+Returns a function that deletes an inbox notification for the current user.
+
+```tsx
+import { useDeleteInboxNotification } from "@liveblocks/react/suspense";
+
+const deleteInboxNotification = useDeleteInboxNotification();
+deleteInboxNotification("in_xxx");
+```
+
+### useDeleteAllInboxNotifications [@badge=LiveblocksProvider]
+
+Returns a function that deletes all of the current user‘s inbox notifications.
+
+```tsx
+import { useDeleteAllInboxNotifications } from "@liveblocks/react/suspense";
+
+const deleteAllInboxNotifications = useDeleteAllInboxNotifications();
+deleteAllInboxNotifications();
+```
+
+### useInboxNotificationThread [@badge=LiveblocksProvider]
+
+Returns the thread associated with a `"thread"` inbox notification.
+
+```tsx
+import { useInboxNotificationThread } from "@liveblocks/react/suspense";
+
+const thread = useInboxNotificationThread("in_xxx");
+```
+
+It can **only** be called with IDs of `"thread"` inbox notifications, so we
+recommend only using it
+[when customizing the rendering](/docs/api-reference/liveblocks-react-ui#Rendering-notification-kinds-differently)
+or in other situations where you can guarantee the kind of the notification.
+
+<Banner type="info" title="No fetching and waterfalls">
+
+When `useInboxNotifications` returns `"thread"` inbox notifications, it also
+receives the associated threads and caches them behind the scenes. When you call
+`useInboxNotificationThread`, it simply returns the cached thread for the inbox
+notification ID you passed to it, without any fetching or waterfalls.
+
+</Banner>
+
+### useRoomNotificationSettings [@badge=RoomProvider]
+
+Returns the user’s notification settings for the current room and a function to
+update them. Updating this setting will change which
+[`inboxNotifications`](#useInboxNotifications) the current user receives in the
+current room.
+
+```tsx
+import { useRoomNotificationSettings } from "@liveblocks/react/suspense";
+
+const [{ settings }, updateSettings] = useRoomNotificationSettings();
+
+// { threads: "replies_and_mentions" }
+console.log(settings);
+
+// No longer receive thread notifications in this room
+updateSettings({
+  threads: "none",
+});
+```
+
+These are the three possible values that can be set:
+
+- `"all"` Receive notifications for every activity.
+- `"replies_and_mentions"` Receive notifications for mentions and thread you’re
+  participating in.
+- `"none"` No notifications are received.
+
+### useUpdateRoomNotificationSettings [@badge=RoomProvider]
+
+Returns a function that updates the user’s notification settings for the current
+room. Updating this setting will change which
+[`inboxNotifications`](#useInboxNotifications) the current user receives in the
+current room.
+
+```tsx
+import { useUpdateRoomNotificationSettings } from "@liveblocks/react/suspense";
+
+const updateRoomNotificationSettings = useUpdateRoomNotificationSettings();
+
+// No longer receive thread notifications in this room
+updateSettings({
+  threads: "none",
+});
+```
+
+These are the three possible values that can be set:
+
+- `"all"` Receive notifications for every activity.
+- `"replies_and_mentions"` Receive notifications for mentions and thread you’re
+  participating in.
+- `"none"` No notifications are received.
+
+Works the same as `updateSettings` in
+[`useRoomNotificationSettings`](#useRoomNotificationSettings).
+
+### useNotificationSettings [@badge=LiveblocksProvider]
+
+<Banner>
+
+User notification settings is currently in beta.
+
+</Banner>
+
+Returns the user’s notification settings in the current project, in other words
+which [notification webhook events](/docs/platform/webhooks#NotificationEvent)
+will be sent for the current user. User notification settings are project-based,
+which means that `settings` and `updateSettings` are for the current user’s
+settings in every room. Useful for creating a
+[notification settings panel](/docs/guides/how-to-create-a-notification-settings-panel).
+
+```tsx
+import { useNotificationSettings } from "@liveblocks/react";
+
+const [{ isLoading, error, settings }, updateSettings] =
+  useNotificationSettings();
+
+// Current user receives thread notifications on the email channel
+// { email: { thread: true, ... }, ... }
+console.log(settings);
+
+// Disabling thread notifications on the email channel
+updateSettings({
+  email: {
+    thread: false,
+  },
+});
+```
+
+A user’s initial settings are set in the dashboard, and different kinds should
+be enabled there. If no kind is enabled on the current channel, `null` will be
+returned. For example, with the email channel:
+
+```ts
+const [{ isLoading, error, settings }, updateSettings] =
+  useNotificationSettings();
+
+// { email: null, ... }
+console.log(settings);
+```
+
+#### Updating notification settings [#useNotificationSettings-updating-notification-settings]
+
+The `updateSettings` function can be used to update the current user’s
+notification settings, changing their settings for every room in the project.
+Each notification `kind` must first be enabled on your project’s notification
+dashboard page before settings can be used.
+
+```tsx
+// You only need to pass partials
+updateSettings({
+  email: { thread: true },
+});
+
+// Enabling a custom notification on the slack channel
+updateSettings({
+  slack: { $myCustomNotification: true },
+});
+
+// Setting complex settings
+updateSettings({
+  email: {
+    thread: true,
+    textMention: false,
+    $newDocument: true,
+  },
+  slack: {
+    thread: false,
+    $fileUpload: false,
+  },
+  teams: {
+    thread: true,
+  },
+});
+```
+
+#### Error handling [#useNotificationSettings-error-handling]
+
+Error handling is an important aspect to consider when using the
+`useNotificationSettings` hook. The `error` fields provides information about
+any error that occurred during the fetch operation.
+
+The following example shows how to display error messages for both initial
+loading errors and errors that occur when fetching more inbox notifications.
+
+```tsx
+import { useNotificationSettings } from "@liveblocks/react";
+
+const [{ isLoading, error, settings }, updateSettings] =
+  useNotificationSettings();
+
+if (error) {
+  return (
+    <div>
+      <p>Error loading user notification settings: {error.message}</p>
+    </div>
+  );
+}
+```
+
+####
+
+👉🏻 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw and error to the nearest `ErrorBoundary` if initial
+load failed.
+
+### useUpdateNotificationSettings [@badge=LiveblocksProvider]
+
+<Banner>
+
+User notification settings is currently in beta.
+
+</Banner>
+
+Returns a function that updates user’s notification settings, which affects
+which [notification webhook events](/docs/platform/webhooks#NotificationEvent)
+will be sent for the current user. User notification settings are project-based,
+which means that `updateSettings` modifies the current user’s settings in every
+room. Each notification `kind` must first be enabled on your project’s
+notification dashboard page before settings can be used. Useful for creating a
+[notification settings panel](/docs/guides/how-to-create-a-notification-settings-panel).
+
+```tsx
+import { useUpdateNotificationSettings } from "@liveblocks/react";
+
+const updateSettings = useUpdateNotificationSettings();
+
+// Disabling thread notifications on the email channel
+updateSettings({
+  email: { thread: false },
+});
+```
+
+Works the same as `updateSettings` in
+[`useNotificationSettings`](#useNotificationSettings). You can pass a partial
+object, or many settings at once.
+
+```tsx
+// You only need to pass partials
+updateSettings({
+  email: { thread: true },
+});
+
+// Enabling a custom notification on the slack channel
+updateSettings({
+  slack: { $myCustomNotification: true },
+});
+
+// Setting complex settings
+updateSettings({
+  email: {
+    thread: true,
+    textMention: false,
+    $newDocument: true,
+  },
+  slack: {
+    thread: false,
+    $fileUpload: false,
+  },
+  teams: {
+    thread: true,
+  },
+});
+```
+
+## Version History
+
+<Banner title="Private beta">
+
+Version history is currently in private beta. If you would like access to the
+beta, please [contact us](https://liveblocks.io/contact/sales). We’d love to
+hear from you.
+
+</Banner>
+
+### useHistoryVersions [@badge=RoomProvider]
+
+Returns the versions of the room. See
+[Version History Components](/docs/api-reference/liveblocks-react-ui#Version-history-components)
+for more information on how to display versions.
+
+```tsx
+import { useHistoryVersions } from "@liveblocks/react";
+
+const { versions, error, isLoading } = useHistoryVersions();
+```
+
+## Miscellaneous
+
+### useUser [@badge=Both]
+
+Returns user info from a given user ID.
+
+```tsx
+import { useUser } from "@liveblocks/react/suspense";
+
+const { user, error, isLoading } = useUser("user-id");
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw when there’s an error.
+
+<Banner title="Providing a resolver function">
+
+To use `useUser`, you should provide a resolver function to the
+[`resolveUsers`][] option in [`createClient`][].
+
+</Banner>
+
+### useRoomInfo [@badge=Both]
+
+Returns room info from a given room ID.
+
+```tsx
+import { useRoomInfo } from "@liveblocks/react/suspense";
+
+const { info, error, isLoading } = useRoomInfo("room-id");
+```
+
+👉 A [Suspense version][] of this hook is also available, which will never return
+a loading state and will throw when there’s an error.
+
+<Banner title="Providing a resolver function">
+
+To use `useRoomInfo`, you should provide a resolver function to the
+[`resolveRoomsInfo`][] option in [`createClient`][].
+
+</Banner>
+
+## TypeScript
+
+### Typing your data
+
+It’s possible to have automatic types flow through your application by defining
+a global `Liveblocks` interface. We recommend doing this in a
+`liveblocks.config.ts` file in the root of your app, so it’s easy to keep track
+of your types. Each type (`Presence`, `Storage`, etc.), is optional, but it’s
+recommended to make use of them.
+
+```ts file="liveblocks.config.ts"
+declare global {
+  interface Liveblocks {
+    // Each user's Presence, for useMyPresence, useOthers, etc.
+    Presence: {};
+
+    // The Storage tree for the room, for useMutation, useStorage, etc.
+    Storage: {};
+
+    UserMeta: {
+      id: string;
+      // Custom user info set when authenticating with a secret key
+      info: {};
+    };
+
+    // Custom events, for useBroadcastEvent, useEventListener
+    RoomEvent: {};
+
+    // Custom metadata set on threads, for useThreads, useCreateThread, etc.
+    ThreadMetadata: {};
+
+    // Custom room info set with resolveRoomsInfo, for useRoomInfo
+    RoomInfo: {};
+
+    // Custom activities data for custom notification kinds
+    ActivitiesData: {};
+  }
+}
+
+// Necessary if you have no imports/exports
+export {};
+```
+
+Here are some example values that might be used.
+
+```ts file="liveblocks.config.ts"
+import { LiveList } from "@liveblocks/client";
+
+declare global {
+  interface Liveblocks {
+    // Each user's Presence, for useMyPresence, useOthers, etc.
+    Presence: {
+      // Example, real-time cursor coordinates
+      cursor: { x: number; y: number };
+    };
+
+    // The Storage tree for the room, for useMutation, useStorage, etc.
+    Storage: {
+      // Example, a conflict-free list
+      animals: LiveList<string>;
+    };
+
+    UserMeta: {
+      id: string;
+      // Custom user info set when authenticating with a secret key
+      info: {
+        // Example properties, for useSelf, useUser, useOthers, etc.
+        name: string;
+        avatar: string;
+      };
+    };
+
+    // Custom events, for useBroadcastEvent, useEventListener
+    // Example has two events, using a union
+    RoomEvent: { type: "PLAY" } | { type: "REACTION"; emoji: "🔥" };
+
+    // Custom metadata set on threads, for useThreads, useCreateThread, etc.
+    ThreadMetadata: {
+      // Example, attaching coordinates to a thread
+      x: number;
+      y: number;
+    };
+
+    // Custom room info set with resolveRoomsInfo, for useRoomInfo
+    RoomInfo: {
+      // Example, rooms with a title and url
+      title: string;
+      url: string;
+    };
+
+    // Custom activities data for custom notification kinds
+    ActivitiesData: {
+      // Example, a custom $alert kind
+      $alert: {
+        title: string;
+        message: string;
+      };
+    };
+  }
+}
+
+// Necessary if you have no imports/exports
+export {};
+```
+
+### Typing with createRoomContext
+
+Before Liveblocks 2.0, it was recommended to create your hooks using
+[`createRoomContext`][], and manually pass your types to this function. This is
+no longer [the recommended method](#Typing-your-data) for setting up Liveblocks,
+but it can still be helpful, for example you can use `createRoomContext`
+multiple times to create different room types, each with their own correctly
+typed hooks.
+
+```tsx file="liveblocks.config.ts" isCollapsable isCollapsed
+import { createClient } from "@liveblocks/client";
+import { createRoomContext } from "@liveblocks/react";
+
+const client = createClient({
+  // publicApiKey: "",
+  // authEndpoint: "/api/liveblocks-auth",
+});
+
+// Presence represents the properties that exist on every user in the Room
+// and that will automatically be kept in sync. Accessible through the
+// `user.presence` property. Must be JSON-serializable.
+type Presence = {
+  // cursor: { x: number, y: number } | null,
+  // ...
+};
+
+// Optionally, Storage represents the shared document that persists in the
+// Room, even after all users leave. Fields under Storage typically are
+// LiveList, LiveMap, LiveObject instances, for which updates are
+// automatically persisted and synced to all connected clients.
+type Storage = {
+  // animals: LiveList<string>,
+  // ...
+};
+
+// Optionally, UserMeta represents static/readonly metadata on each user, as
+// provided by your own custom auth back end (if used). Useful for data that
+// will not change during a session, like a user's name or avatar.
+// type UserMeta = {
+//   id?: string,  // Accessible through `user.id`
+//   info?: Json,  // Accessible through `user.info`
+// };
+
+// Optionally, the type of custom events broadcast and listened to in this
+// room. Use a union for multiple events. Must be JSON-serializable.
+// type RoomEvent = {};
+
+// Optionally, when using Comments, ThreadMetadata represents metadata on
+// each thread. Can only contain booleans, strings, and numbers.
+// export type ThreadMetadata = {
+//   pinned: boolean;
+//   quote: string;
+//   time: number;
+// };
+
+export const {
+  RoomProvider,
+  useMyPresence,
+  useStorage,
+
+  // Other hooks
+  // ...
+} = createRoomContext<
+  Presence,
+  Storage
+  /* UserMeta, RoomEvent, ThreadMetadata */
+>(client);
+```
+
+To upgrade to Liveblocks 2.0 and the new typing system, follow the
+[2.0 migration guide](/docs/platform/upgrading/2.0).
+
+## Helpers
+
+### shallow
+
+Compares two values shallowly. This can be used as the second argument to
+selector based functions to loosen the equality check:
+
+```tsx
+const redShapes = useStorage(
+  (root) => root.shapes.filter((shape) => shape.color === "red"),
+  shallow // 👈 here
+);
+```
+
+The default way [selector results](#selectors-return-arbitrary-values) are
+compared is by checking referential equality (`===`). If your selector returns
+computed arrays (like in the example above) or objects, this will not work.
+
+By passing `shallow` as the second argument, you can “loosen” this check. This
+is because `shallow` will shallowly compare the members of an array (or values
+in an object):
+
+```tsx
+// Comparing arrays
+shallow([1, 2, 3], [1, 2, 3]); // true
+
+// Comparison objects
+shallow({ a: 1 }, { a: 1 }); // true
+```
+
+Please note that this will only do a shallow (one level deep) check. Hence the
+name. If you need to do an arbitrarily deep equality check, you’ll have to write
+a custom equality function or use a library like Lodash for that.
+
+## How selectors work [#selectors] [@keywords=["useStorage", "useSelf", "useOthers", "useOther", "useOthersMapped", "useOthersConnectionIds", "selectors", "comparison"]]
+
+The concepts and behaviors described in this section apply to all of our
+selector hooks: [`useStorage`][] , [`useSelf`][] , [`useOthers`][] ,
+[`useOthersMapped`][], and [`useOther`][] (singular).
+
+```tsx file="Component.tsx"
+const child = useStorage((root) => root.child);
+const nested = useStorage((root) => root.child.nested);
+const total = useStorage((root) => root.x + root.y);
+const merged = useStorage((root) => [...root.items, ...root.more], shallow);
+```
+
+<Banner title="Examples are illustrated via useStorage">
+
+In this section, `useStorage` is used as the canonical example. This is for
+illustration purposes only. The described concepts and behaviors apply equally
+to the other selector hooks.
+
+</Banner>
+
+In a nutshell, the key behaviors for all selector APIs are:
+
+- They [receive immutable data](#selectors-receive-immutable-data)
+- They [return arbitrary values](#selectors-return-arbitrary-values)
+- They [auto-subscribe to updates](#selectors-subscribe-to-updates)
+
+Let’s go over these traits and responsibilities in the next few sections.
+
+### Selectors receive immutable data [#selectors-receive-immutable-data]
+
+The received input to all selector functions is a **read-only** and
+**immutable** top level context value that differs for each hook:
+
+- `useStorage((root) => ...)` receives the Storage root
+- `useSelf((me) => ...)` receives the current user
+- `useOthers((others) => ...)` receives a list of other users in the room
+- `useOthersMapped((other) => ...)` receives each individual other user in the
+  room
+- `useOther(connectionId, (other) => ...)` receives a specific user in the room
+
+For example, suppose you have set up Storage in the typical way by setting
+`initialStorage` in your [`RoomProvider`][] to a tree that describes your app’s
+data model using `LiveList`, `LiveObject`, and `LiveMap`. The "root" argument
+for your selector function, however, will receive **an immutable and read-only
+representation** of that Storage tree, consisting of "normal" JavaScript
+datastructures. This makes consumption much easier.
+
+```tsx file="Component.tsx"
+function Component() {
+  useStorage((root) => ...);
+  //          ^^^^
+  //          Read-only. No mutable Live structures in here.
+  //
+  //          {
+  //            animals: ["🦁", "🦊", "🐵"],
+  //            mathematician: { firstName: "Ada", lastName: "Lovelace" },
+  //            fruitsByName: new Map([
+  //              ["apple", "🍎"],
+  //              ["banana", "🍌"],
+  //              ["cherry", "🍒"],
+  //            ])
+  //          }
+  //
+}
+```
+
+Internally, these read-only trees use a technique called **structural sharing**.
+This means that between rerenders, if nodes in the tree did not change, they
+will **guarantee** to return the same memory instance. Selecting and returning
+these nodes directly is therefore safe and considered a good practice, because
+they are stable references by design.
+
+### Selectors return arbitrary values [#selectors-return-arbitrary-values] [@keywords=["shallow"]]
+
+```tsx file="Component.tsx"
+const animals = useStorage((root) => root.animals);
+// ["🦁", "🦊", "🐵"]
+
+const ada = useStorage((root) => root.mathematician);
+// { firstName: "Ada", lastName: "Lovelace" }
+
+const fullname = useStorage(
+  (root) => `${root.mathematician.firstName} ${root.mathematician.lastName}`
+);
+// "Ada Lovelace"
+
+const fruits = useStorage((root) => [...root.fruitsByName.values()], shallow);
+// ["🍎", "🍌", "🍒"]
+```
+
+Selectors you write can return _any_ value. You can use it to “just” select
+nodes from the root tree (first two examples above), but you can also return
+computed values, like in the last two examples.
+
+#### Selector functions must return a stable result
+
+One important rule is that selector functions **must return a stable result** to
+be efficient. This means calling the same selector twice with the same argument
+should return two results that are _referentially equal_. Special care needs to
+be taken when filtering or mapping over arrays, or when returning object
+literals, because those operations create new array or object instances on every
+call (the reason why is detailed
+[in the next section](#selectors-subscribe-to-updates)).
+
+#### Examples of stable results
+
+<dl>
+  <dt>✅ `(root) => root.animals` is stable</dt>
+  <dd>
+    Liveblocks guarantees this. All nodes in the Storage tree are stable
+    references as long as their contents don’t change.
+  </dd>
+  <dt>️️⚠️ `(root) => root.animals.map(...)` is not stable</dt>
+  <dd>
+    Because `.map()` creates a new array instance every time. You’ll need to use
+    [`shallow`][] here.
+  </dd>
+  <dt>✅ `(root) => root.animals.map(...).join(", ")` is stable</dt>
+  <dd>
+    Because `.join()` ultimately returns a string and all primitive values are
+    always stable.
+  </dd>
+</dl>
+
+#### Use a shallow comparison if the result isn’t stable
+
+If your selector function doesn’t return a stable result, it will lead to an
+explosion of unnecessary rerenders. In most cases, you can use a [`shallow`][]
+comparison function to loosen the check:
+
+```tsx
+import { shallow } from "@liveblocks/react";
+
+// ❌ Bad - many unnecessary rerenders
+const uncheckedItems = useStorage((root) =>
+  root.todos.filter((item) => !item.done)
+);
+
+// ✅ Great
+const uncheckedItems = useStorage(
+  (root) => root.todos.filter((item) => !item.done),
+  shallow // 👈 The fix!
+);
+```
+
+If your selector function constructs complex objects, then a [`shallow`][]
+comparison may not suffice. In those advanced cases, you can provide your own
+custom comparison function, or use `_.isEqual` from Lodash.
+
+### Selectors auto-subscribe to updates [#selectors-subscribe-to-updates]
+
+Selectors effectively automatically subscribe your components to updates to the
+selected or computed values. This means that your component will **automatically
+rerender** when the selected value changes.
+
+Using **multiple selector hooks** within a single React component is perfectly
+fine. Each such hook will individually listen for data changes. The component
+will rerender if _at least one_ of the hooks requires it. If more than one
+selector returns a new value, the component _still only rerenders once_.
+
+Technically, deciding if a rerender is needed works by re-running your selector
+function `(root) => root.child` every time something changes inside Liveblocks
+storage. Anywhere. That happens often in a busy multiplayer app! The reason why
+this is still no problem is that even though `root` will be a different value on
+every change, `root.child` will not be if it didn’t change (due to how
+Liveblocks internally uses structural sharing).
+
+Only once the returned value is different from the previously returned value,
+the component will get rerendered. Otherwise, your component will just remain
+idle.
+
+Consider the case:
+
+```tsx
+function Component() {
+  const animals = useStorage((root) => root.animals);
+}
+```
+
+And the following timeline:
+
+- First render, `root.animals` initially is `["🦁", "🦊", "🐵"]`.
+- Then, something unrelated elsewhere in Storage is changed. In response to the
+  change, `root.animals` gets re-evaluated, but it still returns the same
+  (unchanged) array instance.
+- Since the value didn’t change, no rerender is needed.
+- Then, someone removes an animal from the list. In response to the change,
+  `root.animals` gets re-evaluated, and now it returns `["🦁", "🦊"]`.
+- Because the previous value and this value are different, the component will
+  rerender, seeing the updated value.
+
+[`createclient`]: /docs/api-reference/liveblocks-client#createClient
+[`createroomcontext`]: /docs/api-reference/liveblocks-react#createRoomContext
+[`livelist`]: /docs/api-reference/liveblocks-client#LiveList
+[`livemap`]: /docs/api-reference/liveblocks-client#LiveMap
+[`liveobject`]: /docs/api-reference/liveblocks-client#LiveObject
+[`lostconnectiontimeout`]:
+  /docs/api-reference/liveblocks-client#createClientLostConnectionTimeout
+[`room.history`]: /docs/api-reference/liveblocks-client#Room.history
+[`roomprovider`]: /docs/api-reference/liveblocks-react#RoomProvider
+[`liveblocksprovider`]: /docs/api-reference/liveblocks-react#LiveblocksProvider
+[`usemutation`]: /docs/api-reference/liveblocks-react#useMutation
+[`usestorage`]: /docs/api-reference/liveblocks-react#useStorage
+[`useself`]: /docs/api-reference/liveblocks-react#useSelf
+[`useothers`]: /docs/api-reference/liveblocks-react#useOthers
+[`useothersmapped`]: /docs/api-reference/liveblocks-react#useOthersMapped
+[`useothersconnectionids`]:
+  /docs/api-reference/liveblocks-react#useOthersConnectionIds
+[`useother`]: /docs/api-reference/liveblocks-react#useOther
+[`uselostconnectionlistener`]:
+  /docs/api-reference/liveblocks-react#useLostConnectionListener
+[`clientsidesuspense`]: /docs/api-reference/liveblocks-react#ClientSideSuspsnse
+[`usebroadcastevent`]: /docs/api-reference/liveblocks-react#useBroadcastEvent
+[`usethreads`]: /docs/api-reference/liveblocks-react#useThreads
+[`useinboxnotifications`]:
+  /docs/api-reference/liveblocks-react#useInboxNotifications
+[`usesyncstatus`]: /docs/api-reference/liveblocks-react#useSyncStatus
+[`useerrorlistener`]: /docs/api-reference/liveblocks-react#useErrorListener
+[`room`]: /docs/api-reference/liveblocks-client#Room
+[`shallow`]: /docs/api-reference/liveblocks-react#shallow
+[`resolveusers`]: /docs/api-reference/liveblocks-client#resolveUsers
+[`resolveroomsinfo`]: /docs/api-reference/liveblocks-client#resolveRoomsInfo
+[selector]: /docs/api-reference/liveblocks-react#selectors
+[how selectors work]: /docs/api-reference/liveblocks-react#selectors
+[suspense version]: /docs/api-reference/liveblocks-react#Suspense
+[connection status example]:
+  https://liveblocks.io/examples/connection-status/nextjs
+[`atob`]: https://developer.mozilla.org/en-US/docs/Web/API/atob
+[`base-64`]: https://www.npmjs.com/package/base-64
+[`websocket`]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
+[`ws`]: https://www.npmjs.com/package/ws
+[`fetch`]: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+[`node-fetch`]: https://npmjs.com/package/node-fetch
